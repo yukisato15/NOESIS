@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>辞書一覧</h2>
+  <div class="tags">
+    {% for key, label in domain_labels.items() %}
+      <a class="tag" href="/dictionary?domain={{ key }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <h3>Field</h3>
+  <div class="tags">
+    <a class="tag" href="/dictionary?domain={{ domain }}">すべて</a>
+    {% for f in fields %}
+      <a class="tag" href="/dictionary?domain={{ domain }}&field={{ f }}">{{ f }}</a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <h3>50音</h3>
+  <div class="tags">
+    <a class="tag" href="/dictionary?domain={{ domain }}{% if field %}&field={{ field }}{% endif %}">すべて</a>
+    {% for r in rows %}
+      <a class="tag" href="/dictionary?domain={{ domain }}{% if field %}&field={{ field }}{% endif %}&row={{ r }}">{{ r }}行</a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  {% if entries %}
+    <ul class="entry-list">
+      {% for entry in entries %}
+        <li>
+          <div class="entry-meta">
+            <a class="entry-title" href="/entry/{{ entry.id }}">{{ entry.title }}</a>
+          </div>
+          <div class="muted">{{ entry.reading }}</div>
+          {% if entry.field %}
+            <div class="muted">{{ entry.field }}</div>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>該当する辞書エントリーがありません。</p>
+  {% endif %}
+</section>
+{% endblock %}

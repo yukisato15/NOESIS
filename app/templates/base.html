@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NOESIS</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+  <body class="{% if request.url.path == '/' %}home{% endif %}">
+  <header class="site-header">
+    <div class="container">
+      <div class="brand">
+        <h1>NOESIS</h1>
+        <span class="brand-tagline">知を育成する</span>
+      </div>
+      {% if request.url.path != '/' %}
+      <nav class="nav-compact">
+        <a href="/search">検索</a>
+        <a href="/reading-archive">読書アーカイブ</a>
+        <a href="/language-archive">言語アーカイブ</a>
+        <a href="/think">思索アーカイブ</a>
+        <a href="/daily">日常メモアーカイブ</a>
+      </nav>
+      {% endif %}
+    </div>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <button type="button" class="back-fab" onclick="history.back()">戻る</button>
+  <script>
+    const forms = document.querySelectorAll(".form-validate");
+    forms.forEach((form) => {
+      const errorEl = form.querySelector(".form-error");
+      const requiredFields = form.querySelectorAll("input[required], textarea[required], select[required]");
+
+      const clearError = () => {
+        if (errorEl) {
+          errorEl.hidden = true;
+          errorEl.textContent = "";
+        }
+        requiredFields.forEach((field) => field.classList.remove("input-error"));
+      };
+
+      requiredFields.forEach((field) => {
+        field.addEventListener("input", () => {
+          if (field.value.trim()) {
+            field.classList.remove("input-error");
+          }
+        });
+      });
+
+      form.addEventListener("submit", (event) => {
+        let firstInvalid = null;
+        requiredFields.forEach((field) => {
+          if (!field.value.trim()) {
+            field.classList.add("input-error");
+            if (!firstInvalid) {
+              firstInvalid = field;
+            }
+          }
+        });
+        if (firstInvalid) {
+          event.preventDefault();
+          if (errorEl) {
+            errorEl.textContent = "必須項目を入力してください。";
+            errorEl.hidden = false;
+          }
+          firstInvalid.focus();
+        } else {
+          clearError();
+        }
+      });
+    });
+
+    const linkify = (text) => {
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      return text.replace(urlRegex, (url) => {
+        return `<a href="${url}" target="_blank" rel="noopener">${url}</a>`;
+      });
+    };
+
+    document.querySelectorAll("pre").forEach((el) => {
+      el.innerHTML = linkify(el.textContent);
+    });
+  </script>
+</body>
+</html>

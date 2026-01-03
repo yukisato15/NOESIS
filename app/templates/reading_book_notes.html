@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  {% if book %}
+    <h2>{{ book.title }}</h2>
+    <div class="muted">
+      {% if book.author %}{{ book.author }}{% endif %}
+      {% if book.isbn %} / ISBN {{ book.isbn }}{% endif %}
+    </div>
+  {% else %}
+    <h2>本が見つかりません</h2>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>メモ一覧</h2>
+  {% if notes %}
+    <ul class="entry-list">
+      {% for entry in notes %}
+        <li>
+          <div class="entry-meta">
+            <span class="badge">{{ entry.type }}</span>
+            <a href="/entry/{{ entry.id }}" class="entry-title">{{ entry.title }}</a>
+          </div>
+          <p class="entry-body">{{ entry.body[:160] }}...</p>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>この本のメモはまだありません。</p>
+  {% endif %}
+</section>
+{% endblock %}

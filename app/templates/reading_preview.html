@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>読書メモプレビュー（編集可）</h2>
+  <p class="muted">要約とメモ本文が整えば保存OK。引用や出典は後から追記できます。</p>
+  <form method="post" action="/reading-notes/save" class="stack form-validate">
+    <p class="form-error" aria-live="polite" hidden></p>
+    <label>
+      本タイトル
+      <input type="text" name="book_title" value="{{ book_title }}" required />
+    </label>
+    <details class="optional">
+      <summary>本の詳細（任意）</summary>
+      <div class="stack">
+        <label>
+          著者
+          <input type="text" name="author" value="{{ author }}" />
+        </label>
+        <label>
+          ISBN
+          <input type="text" name="isbn" value="{{ isbn }}" />
+        </label>
+      </div>
+    </details>
+    <label>
+      章 / セクション
+      <input type="text" name="chapter" value="{{ chapter }}" />
+    </label>
+    <label>
+      要約
+      <textarea name="summary" rows="3">{{ draft.summary }}</textarea>
+    </label>
+    <label>
+      メモ本文
+      <textarea name="memo" rows="4">{{ memo }}</textarea>
+    </label>
+    <details class="optional">
+      <summary>詳細（タグ・出典・引用）</summary>
+      <div class="stack">
+        <label>
+          タグ（カンマ区切り）
+          <input type="text" name="tags" placeholder="読書,学び" />
+        </label>
+        <label>
+          出典（1行1件: url | title | note）
+          <textarea name="sources" rows="3" placeholder="https://... | 出版社ページ | note"></textarea>
+        </label>
+        <label>
+          引用（1行1件: quote | page_or_loc | note）
+          <textarea name="quotes" rows="3" placeholder="引用文 | p.12 | note"></textarea>
+        </label>
+      </div>
+    </details>
+    <details class="optional">
+      <summary>AI会話の保存</summary>
+      <div class="stack">
+        <label>
+          会話ログ（保存対象）
+          <textarea name="chat_log" rows="4" readonly>{{ chat_log }}</textarea>
+        </label>
+        <label>
+          抜粋（保存する場合のみ）
+          <textarea name="chat_extract" rows="3"></textarea>
+        </label>
+        <div class="stack">
+          <label><input type="radio" name="chat_save_mode" value="none" checked /> 保存しない</label>
+          <label><input type="radio" name="chat_save_mode" value="log" /> 全文ログを保存</label>
+          <label><input type="radio" name="chat_save_mode" value="extract" /> 抜粋のみ保存</label>
+          <label><input type="radio" name="chat_save_mode" value="summary" /> 要約（AI）を保存</label>
+        </div>
+      </div>
+    </details>
+    <div class="action-bar">
+      <button type="submit">保存</button>
+    </div>
+  </form>
+  <form method="post" action="/reading-notes/chat" class="stack">
+    <input type="hidden" name="book_title" value="{{ book_title }}" />
+    <input type="hidden" name="author" value="{{ author }}" />
+    <input type="hidden" name="isbn" value="{{ isbn }}" />
+    <input type="hidden" name="chapter" value="{{ chapter }}" />
+    <textarea name="memo" rows="1" style="display:none">{{ memo }}</textarea>
+    <textarea name="summary" rows="1" style="display:none">{{ draft.summary }}</textarea>
+    <textarea name="chat_log" rows="1" style="display:none">{{ chat_log }}</textarea>
+    <label>
+      AIに質問
+      <textarea name="chat_question" rows="3" placeholder="気になった点や深掘りしたい点を入力"></textarea>
+    </label>
+    {% if chat_answer %}
+      <div class="muted">最新の返答: {{ chat_answer }}</div>
+    {% endif %}
+    <div class="action-bar">
+      <button type="submit">質問する</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

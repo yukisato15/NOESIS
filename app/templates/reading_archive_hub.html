@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>読書アーカイブ</h2>
+  <div class="stack">
+    <a class="button-link" href="/reading-archive/new">読書アーカイブ作成</a>
+  </div>
+  {% if books %}
+    <ul class="entry-list">
+      {% for book in books %}
+        <li class="entry-item">
+          <a class="entry-title" href="/reading-archive/{{ book.id }}">{{ book.title }}</a>
+          <div class="muted">
+            {% if book.author %}{{ book.author }} / {% endif %}
+            メモ {{ book.memo_count }} / 感想 {{ book.reflection_count }}
+          </div>
+          {% if book.overview %}
+            <p class="entry-body">{{ book.overview[:120] }}...</p>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">まだ読書アーカイブがありません。</p>
+  {% endif %}
+</section>
+{% endblock %}

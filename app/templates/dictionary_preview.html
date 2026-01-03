@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>{{ dictionary_label }}プレビュー（編集可）</h2>
+  <p class="muted">まずは意味と例文だけ整えればOK。詳細はあとで追記できます。</p>
+  <form method="post" action="/dictionary/save" class="stack form-validate">
+    <p class="form-error" aria-live="polite" hidden></p>
+    <input type="hidden" name="dictionary_type" value="{{ dictionary_type }}" />
+    <input type="hidden" name="concepts" value="{{ draft.concepts }}" />
+    <label>
+      単語 / 言い回し
+      <input type="text" name="term" value="{{ term }}" required />
+    </label>
+    <label>
+      定義
+      <textarea name="definition" rows="3" required>{{ draft.definition }}</textarea>
+    </label>
+    <label>
+      例文
+      <textarea name="example" rows="3" required>{{ draft.example }}</textarea>
+    </label>
+    <details class="optional">
+      <summary>詳細（類義語・タグなど）</summary>
+      <div class="stack">
+        <label>
+          ジャンル（俯瞰用・少数）
+          <input type="text" name="genre" value="{{ genre }}" placeholder="概念 / 表現 など" />
+        </label>
+        <label>
+          タグ（横断検索・カンマ区切り）
+          <input type="text" name="tags" value="{{ tags }}" placeholder="語彙,言い回し" />
+        </label>
+        <label>
+          類義語
+          <input type="text" name="synonyms" value="{{ draft.synonyms }}" />
+        </label>
+        <label>
+          対立概念
+          <input type="text" name="antonyms" value="{{ draft.antonyms }}" />
+        </label>
+        <label>
+          関連語
+          <input type="text" name="related" value="{{ draft.related }}" />
+        </label>
+        <label>
+          参考URL候補
+          <textarea name="reference_urls" rows="3">{{ draft.reference_urls }}</textarea>
+        </label>
+        <label>
+          出典（1行1件: url | title | note）
+          <textarea name="sources" rows="3" placeholder="https://... | Wikipedia | note"></textarea>
+        </label>
+      </div>
+    </details>
+    <details class="optional">
+      <summary>AI会話の保存</summary>
+      <div class="stack">
+        <label>
+          会話ログ（保存対象）
+          <textarea name="chat_log" rows="4" readonly>{{ chat_log }}</textarea>
+        </label>
+        <label>
+          抜粋（保存する場合のみ）
+          <textarea name="chat_extract" rows="3"></textarea>
+        </label>
+        <div class="stack">
+          <label><input type="radio" name="chat_save_mode" value="none" checked /> 保存しない</label>
+          <label><input type="radio" name="chat_save_mode" value="log" /> 全文ログを保存</label>
+          <label><input type="radio" name="chat_save_mode" value="extract" /> 抜粋のみ保存</label>
+          <label><input type="radio" name="chat_save_mode" value="summary" /> 要約（AI）を保存</label>
+        </div>
+      </div>
+    </details>
+    <div class="action-bar">
+      <button type="submit">保存</button>
+    </div>
+  </form>
+  <form method="post" action="/dictionary/chat" class="stack">
+    <input type="hidden" name="dictionary_type" value="{{ dictionary_type }}" />
+    <input type="hidden" name="term" value="{{ term }}" />
+    <input type="hidden" name="concepts" value="{{ draft.concepts }}" />
+    <textarea name="definition" rows="1" style="display:none">{{ draft.definition }}</textarea>
+    <textarea name="example" rows="1" style="display:none">{{ draft.example }}</textarea>
+    <textarea name="synonyms" rows="1" style="display:none">{{ draft.synonyms }}</textarea>
+    <textarea name="antonyms" rows="1" style="display:none">{{ draft.antonyms }}</textarea>
+    <textarea name="related" rows="1" style="display:none">{{ draft.related }}</textarea>
+    <textarea name="reference_urls" rows="1" style="display:none">{{ draft.reference_urls }}</textarea>
+    <input type="hidden" name="genre" value="{{ genre }}" />
+    <input type="hidden" name="tags" value="{{ tags }}" />
+    <textarea name="chat_log" rows="1" style="display:none">{{ chat_log }}</textarea>
+    <label>
+      AIに質問
+      <textarea name="chat_question" rows="3" placeholder="気になった点や深掘りしたい点を入力"></textarea>
+    </label>
+    {% if chat_answer %}
+      <div class="muted">最新の返答: {{ chat_answer }}</div>
+    {% endif %}
+    <div class="action-bar">
+      <button type="submit">質問する</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

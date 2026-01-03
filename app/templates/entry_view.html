@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  {% if entry %}
+    <h2>{{ entry.title }}</h2>
+    <div class="entry-meta">
+      <span class="badge">{{ entry.type }}</span>
+      <span class="muted">作成: {{ entry.created_at }}</span>
+    </div>
+    {% if entry.type == "dictionary" and entry.genre %}
+      <div class="muted">ジャンル: {{ entry.genre }}</div>
+    {% endif %}
+    {% if entry.type == "reading_note" and book %}
+      <div class="muted">本: {{ book.title }}{% if book.author %} / {{ book.author }}{% endif %}</div>
+    {% endif %}
+    <div class="entry-actions">
+      <a class="button-link" href="/entry/{{ entry.id }}/edit">編集</a>
+      {% if entry.type == "reading_note" %}
+        <a class="button-link" href="/reading-notes/{{ entry.id }}/promote">辞書エントリとして昇格</a>
+      {% endif %}
+      <form method="post" action="/entry/{{ entry.id }}/delete" onsubmit="return confirm('削除しますか？');">
+        <button type="submit" class="danger">削除</button>
+      </form>
+    </div>
+    {% if tags %}
+      <div class="tags">
+        {% for t in tags %}
+          <span class="tag">{{ t }}</span>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <article class="entry-body">
+      {% if english_lexicon %}
+        <div class="stack">
+          <div><strong>1. 見出し語:</strong> {{ english_lexicon.headword }}</div>
+          <div>
+            <strong>2. 発音記号:</strong>
+            <div class="muted">{{ english_lexicon.ipa }}</div>
+          </div>
+          <div><strong>3. 意味（日本語）:</strong> {{ english_lexicon.definition_ja }}</div>
+          <div><strong>4. 語源・背景メモ:</strong> {{ english_lexicon.etymology }}</div>
+          <div>
+            <strong>5. 類義語（英＋日）:</strong>
+            <ul>
+              {% for item in english_lexicon.synonyms_json %}
+                <li>{{ item.term_en }} ({{ item.term_ja }}){% if item.note %} - {{ item.note }}{% endif %}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div>
+            <strong>6. 対立概念（英＋日）:</strong>
+            <ul>
+              {% for item in english_lexicon.antonyms_json %}
+                <li>{{ item.term_en }} ({{ item.term_ja }}){% if item.note %} - {{ item.note }}{% endif %}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div>
+            <strong>7. 用例（英＋日）:</strong>
+            <ul>
+              {% for item in english_lexicon.examples_json %}
+                <li>{{ item.sentence_en }} ({{ item.sentence_ja }})</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div>
+            <strong>8. 熟語・決まり文句:</strong>
+            <ul>
+              {% for item in english_lexicon.phrases_json %}
+                <li>{{ item.phrase_en }} ({{ item.phrase_ja }}){% if item.note %} - {{ item.note }}{% endif %}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div><strong>9. 注意・ワンポイント:</strong> {{ english_lexicon.usage_note }}</div>
+          <div><strong>10. 自由メモ:</strong> {{ english_lexicon.audio_note }}</div>
+        </div>
+    {% else %}
+        <pre class="linkify">{{ entry.body }}</pre>
+    {% endif %}
+    </article>
+
+    <section class="panel nested">
+      <h3>AIに質問</h3>
+      <form method="post" action="/entry/{{ entry.id }}/chat" class="stack">
+        <textarea name="chat_log" rows="1" style="display:none">{{ chat_log }}</textarea>
+        <label>
+          質問
+          <textarea name="chat_question" rows="3" placeholder="気になった点や深掘りしたい点を入力"></textarea>
+        </label>
+        {% if chat_answer %}
+          <div class="muted">最新の返答: {{ chat_answer }}</div>
+        {% endif %}
+        <div class="action-bar">
+          <button type="submit">質問する</button>
+        </div>
+      </form>
+      <form method="post" action="/entry/{{ entry.id }}/chat/save" class="stack">
+        <label>
+          会話ログ（保存対象）
+          <textarea name="chat_log" rows="4" readonly>{{ chat_log }}</textarea>
+        </label>
+        <label>
+          抜粋（保存する場合のみ）
+          <textarea name="chat_extract" rows="3"></textarea>
+        </label>
+        <div class="stack">
+          <label><input type="radio" name="chat_save_mode" value="none" checked /> 保存しない</label>
+          <label><input type="radio" name="chat_save_mode" value="log" /> 全文ログを保存</label>
+          <label><input type="radio" name="chat_save_mode" value="extract" /> 抜粋のみ保存</label>
+          <label><input type="radio" name="chat_save_mode" value="summary" /> 要約（AI）を保存</label>
+        </div>
+        <div class="action-bar">
+          <button type="submit">追記として保存</button>
+        </div>
+      </form>
+    </section>
+
+    {% if appendix %}
+      <section class="panel nested">
+        <h3>追記</h3>
+        <ul>
+          {% for item in appendix %}
+            <li>
+              <div class="muted">{{ item.created_at }} / {{ item.type }}</div>
+              <pre>{{ item.content }}</pre>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
+    {% if quotes %}
+      <section class="panel nested">
+        <h3>引用</h3>
+        <ul>
+          {% for q in quotes %}
+            <li>
+              <strong>{{ q.quote_text }}</strong>
+              {% if q.page_or_loc %}<span class="muted">({{ q.page_or_loc }})</span>{% endif %}
+              {% if q.note %}<div class="muted">{{ q.note }}</div>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
+    {% if sources %}
+      <section class="panel nested">
+        <h3>出典</h3>
+        <ul>
+          {% for s in sources %}
+            <li>
+              {% if s.url %}<a href="{{ s.url }}" target="_blank" rel="noopener">{{ s.url }}</a>{% endif %}
+              {% if s.title %}<span>{{ s.title }}</span>{% endif %}
+              {% if s.note %}<div class="muted">{{ s.note }}</div>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  {% else %}
+    <h2>エントリーが見つかりません</h2>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  {% if entry %}
+    <h2>エントリー編集</h2>
+    <form method="post" action="/entry/{{ entry.id }}/edit" class="stack form-validate">
+      <p class="form-error" aria-live="polite" hidden></p>
+      <label>
+        タイトル
+        <input type="text" name="title" value="{{ entry.title }}" required />
+      </label>
+      {% if entry.type == "dictionary" %}
+        <label>
+          ジャンル（俯瞰用・少数）
+          <input type="text" name="genre" value="{{ entry.genre or '' }}" />
+        </label>
+      {% endif %}
+      <label>
+        本文
+        <textarea name="body" rows="12" required>{{ entry.body }}</textarea>
+      </label>
+      <details class="optional">
+        <summary>詳細（タグ・出典・引用）</summary>
+        <div class="stack">
+          <label>
+            タグ（カンマ区切り）
+            <input type="text" name="tags" value="{{ tags_text }}" />
+          </label>
+          <label>
+            出典（1行1件: url | title | note）
+            <textarea name="sources" rows="3">{{ sources_text }}</textarea>
+          </label>
+          <label>
+            引用（1行1件: quote | page_or_loc | note）
+            <textarea name="quotes" rows="3">{{ quotes_text }}</textarea>
+          </label>
+        </div>
+      </details>
+      <div class="action-bar">
+        <button type="submit">更新</button>
+      </div>
+    </form>
+  {% else %}
+    <h2>エントリーが見つかりません</h2>
+  {% endif %}
+</section>
+{% endblock %}

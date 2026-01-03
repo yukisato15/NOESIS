@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  {% if book %}
+    <h2>{{ book.title }}</h2>
+    <div class="muted">{% if book.author %}{{ book.author }}{% endif %}</div>
+    {% if book.overview %}
+      <p>{{ book.overview }}</p>
+    {% endif %}
+
+    <section class="panel nested">
+      <h3>読書メモ追加</h3>
+      <form method="post" action="/reading-archive/{{ book.id }}/memo" class="stack form-validate">
+        <label>
+          内容
+          <textarea name="content" rows="4" required></textarea>
+        </label>
+        <div class="action-bar">
+          <button type="submit">追加</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel nested">
+      <h3>読書感想追加</h3>
+      <form method="post" action="/reading-archive/{{ book.id }}/reflection" class="stack form-validate">
+        <label>
+          内容
+          <textarea name="content" rows="4" required></textarea>
+        </label>
+        <div class="action-bar">
+          <button type="submit">追加</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel nested">
+      <h3>AIに質問</h3>
+      <form method="post" action="/reading-archive/{{ book.id }}/chat" class="stack">
+        <textarea name="chat_log" rows="1" style="display:none">{{ chat_log }}</textarea>
+        <label>
+          質問
+          <textarea name="chat_question" rows="3" placeholder="気になった点や深掘りしたい点を入力"></textarea>
+        </label>
+        {% if chat_answer %}
+          <div class="muted">最新の返答: {{ chat_answer }}</div>
+        {% endif %}
+        <div class="action-bar">
+          <button type="submit">質問する</button>
+        </div>
+      </form>
+      <form method="post" action="/reading-archive/{{ book.id }}/chat/save" class="stack">
+        <label>
+          会話ログ（保存対象）
+          <textarea name="chat_log" rows="4" readonly>{{ chat_log }}</textarea>
+        </label>
+        <label>
+          抜粋（保存する場合のみ）
+          <textarea name="chat_extract" rows="3"></textarea>
+        </label>
+        <div class="stack">
+          <label><input type="radio" name="chat_save_mode" value="none" checked /> 保存しない</label>
+          <label><input type="radio" name="chat_save_mode" value="log" /> 全文ログを保存</label>
+          <label><input type="radio" name="chat_save_mode" value="extract" /> 抜粋のみ保存</label>
+          <label><input type="radio" name="chat_save_mode" value="summary" /> 要約（AI）を保存</label>
+        </div>
+        <div class="action-bar">
+          <button type="submit">追記として保存</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel nested">
+      <h3>読書メモ</h3>
+      {% if memos %}
+        <ul>
+          {% for memo in memos %}
+            <li>
+              <div class="muted">{{ memo.created_at }}</div>
+              <pre>{{ memo.content }}</pre>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">まだメモがありません。</p>
+      {% endif %}
+    </section>
+
+    <section class="panel nested">
+      <h3>読書感想</h3>
+      {% if reflections %}
+        <ul>
+          {% for reflection in reflections %}
+            <li>
+              <div class="muted">{{ reflection.created_at }}</div>
+              <pre>{{ reflection.content }}</pre>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">まだ感想がありません。</p>
+      {% endif %}
+    </section>
+
+    {% if appendix %}
+      <section class="panel nested">
+        <h3>追記</h3>
+        <ul>
+          {% for item in appendix %}
+            <li>
+              <div class="muted">{{ item.created_at }} / {{ item.type }}</div>
+              <pre>{{ item.content }}</pre>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  {% else %}
+    <p class="muted">読書アーカイブが見つかりません。</p>
+  {% endif %}
+</section>
+{% endblock %}

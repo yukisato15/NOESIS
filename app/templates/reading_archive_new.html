@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>読書アーカイブ作成</h2>
+  <form method="post" action="/reading-archive/save" class="stack form-validate">
+    <label>
+      書籍タイトル
+      <input type="text" name="book_title" required />
+    </label>
+    <label>
+      著者
+      <input type="text" name="author" required />
+    </label>
+    <label>
+      ISBN（任意）
+      <input type="text" name="isbn" />
+    </label>
+    <label>
+      概要（任意）
+      <textarea name="overview" rows="4"></textarea>
+    </label>
+    <div class="action-bar">
+      <button type="submit">作成</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

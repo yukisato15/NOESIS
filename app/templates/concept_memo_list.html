@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>概念メモ一覧</h2>
+  <div class="stack">
+    <a class="button-link" href="/concept-memos/new">概念メモを作成</a>
+  </div>
+  {% if memos %}
+    <ul class="entry-list">
+      {% for memo in memos %}
+        <li>
+          <a class="entry-title" href="/concept-memos/{{ memo.id }}">{{ memo.title }}</a>
+          <div class="muted">更新: {{ memo.updated_at }}</div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">まだ概念メモがありません。</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>概念辞書（生成プレビュー）</h2>
+  <form method="post" action="/concepts/ai/save" class="stack form-validate">
+    <p class="form-error" hidden></p>
+    <input type="hidden" name="term" value="{{ term }}" />
+
+    <label>
+      見出し
+      <input type="text" value="{{ term }}" disabled />
+    </label>
+
+    <label>
+      定義
+      <textarea name="definition" rows="6" required>{{ draft.definition }}</textarea>
+    </label>
+
+    <label>
+      例文
+      <textarea name="example" rows="3" required>{{ draft.example }}</textarea>
+    </label>
+
+    <label>
+      類義語
+      <textarea name="synonyms" rows="2" required>{{ draft.synonyms }}</textarea>
+    </label>
+
+    <label>
+      対立概念
+      <textarea name="antonyms" rows="2" required>{{ draft.antonyms }}</textarea>
+    </label>
+
+    <label>
+      関連語
+      <textarea name="related" rows="2" required>{{ draft.related }}</textarea>
+    </label>
+
+    <label>
+      参考URL
+      <textarea name="reference_urls" rows="2" required>{{ draft.reference_urls }}</textarea>
+    </label>
+
+    <button type="submit">保存</button>
+  </form>
+</section>
+{% endblock %}

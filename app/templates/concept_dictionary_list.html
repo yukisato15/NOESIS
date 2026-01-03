@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>概念辞書一覧</h2>
+  <div class="stack">
+    <a class="button-link" href="/concepts/ai/new">概念辞書を入力</a>
+  </div>
+  {% if concepts %}
+    <ul class="entry-list">
+      {% for concept in concepts %}
+        <li>
+          <a class="entry-title" href="/concepts/{{ concept.id }}">{{ concept.title }}</a>
+          <div class="muted">更新: {{ concept.updated_at }}</div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">まだ概念辞書がありません。</p>
+  {% endif %}
+</section>
+{% endblock %}

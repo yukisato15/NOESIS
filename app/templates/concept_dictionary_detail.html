@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  {% if concept %}
+    <h2>{{ concept.title }}</h2>
+    <div class="muted">更新: {{ concept.updated_at }}</div>
+    <pre>{{ concept.body }}</pre>
+  {% else %}
+    <p class="muted">概念辞書が見つかりません。</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>関連する概念メモ</h2>
+  {% if memos %}
+    <ul class="entry-list">
+      {% for memo in memos %}
+        <li>
+          <a class="entry-title" href="/concept-memos/{{ memo.id }}">{{ memo.title }}</a>
+          <div class="muted">更新: {{ memo.updated_at }}</div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">この概念に紐づいたメモはまだありません。</p>
+  {% endif %}
+</section>
+{% endblock %}

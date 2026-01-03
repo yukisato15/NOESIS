@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>概念辞書を入力</h2>
+  <form method="post" action="/concepts/ai/preview" class="stack form-validate">
+    <p class="form-error" hidden></p>
+    <label>
+      概念
+      <input type="text" name="term" required placeholder="例: 形式的包摂と実質的包摂" />
+    </label>
+    <button type="submit">生成AI</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>AIに質問</h2>
+  <form method="post" action="/concepts/ai/chat" class="stack">
+    <label>
+      質問
+      <textarea name="question" rows="3" placeholder="背景や切り口を質問"></textarea>
+    </label>
+    {% if chat_answer %}
+      <div class="muted">回答: {{ chat_answer }}</div>
+    {% endif %}
+    <button type="submit">質問する</button>
+  </form>
+</section>
+{% endblock %}

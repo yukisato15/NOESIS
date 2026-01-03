@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>読書メモ入力</h2>
+  <p class="muted">本と章、そして今の気づきだけを書き留めます。引用や出典は後から追加できます。</p>
+  <form method="post" action="/reading-notes/preview" class="stack form-validate">
+    <p class="form-error" aria-live="polite" hidden></p>
+    <label>
+      本タイトル
+      <input type="text" name="book_title" required />
+    </label>
+    <details class="optional">
+      <summary>本の詳細（任意）</summary>
+      <div class="stack">
+        <label>
+          著者
+          <input type="text" name="author" />
+        </label>
+        <label>
+          ISBN
+          <input type="text" name="isbn" />
+        </label>
+      </div>
+    </details>
+    <label>
+      章 / セクション
+      <input type="text" name="chapter" />
+    </label>
+    <label>
+      メモ本文
+      <textarea name="memo" rows="4"></textarea>
+    </label>
+    <div class="action-bar">
+      <button type="submit">要約をモック生成</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

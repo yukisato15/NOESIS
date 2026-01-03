@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="home-hero"></section>
+
+<section class="archive-grid">
+  <a class="archive-card" href="/think">
+    <div class="archive-icon icon-think">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="18" cy="20" r="5" />
+        <circle cx="38" cy="18" r="4" />
+        <circle cx="46" cy="36" r="6" />
+        <path d="M18 20 L38 18 L46 36" />
+      </svg>
+    </div>
+    <div class="archive-text">
+      <h3>思索アーカイブ</h3>
+      <p>思考と概念を残す</p>
+      <div class="archive-features">概念辞書・概念メモ</div>
+    </div>
+  </a>
+
+  <a class="archive-card" href="/reading-archive">
+    <div class="archive-icon icon-reading">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="14" y="18" width="12" height="28" rx="4" />
+        <rect x="34" y="18" width="16" height="28" rx="4" />
+        <path d="M26 22 L34 22" />
+      </svg>
+    </div>
+    <div class="archive-text">
+      <h3>読書アーカイブ</h3>
+      <p>本ごとに残す</p>
+      <div class="archive-features">本データ・読書メモ・読書感想</div>
+    </div>
+  </a>
+
+  <a class="archive-card" href="/language-archive">
+    <div class="archive-icon icon-lexicon">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="20" cy="24" r="6" />
+        <circle cx="44" cy="40" r="6" />
+        <path d="M26 24 L38 40" />
+      </svg>
+    </div>
+    <div class="archive-text">
+      <h3>辞書アーカイブ</h3>
+      <p>言葉を整理する</p>
+      <div class="archive-features">一般辞書・英語辞書・IT用語辞書</div>
+    </div>
+  </a>
+
+  <a class="archive-card" href="/daily">
+    <div class="archive-icon icon-daily">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="20" cy="22" r="4" />
+        <circle cx="34" cy="28" r="3" />
+        <circle cx="44" cy="18" r="2.5" />
+        <circle cx="24" cy="40" r="3" />
+        <circle cx="40" cy="42" r="4" />
+      </svg>
+    </div>
+    <div class="archive-text">
+      <h3>日常メモ</h3>
+      <p>短いメモを残す</p>
+      <div class="archive-features">短文メモ・タスク・思いつき</div>
+    </div>
+  </a>
+
+  <a class="archive-card" href="/search">
+    <div class="archive-icon icon-search">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="28" cy="28" r="10" />
+        <circle cx="44" cy="44" r="6" />
+      </svg>
+    </div>
+    <div class="archive-text">
+      <h3>検索</h3>
+      <p>まとめて探す</p>
+      <div class="archive-features">種類別・タグ・日付</div>
+    </div>
+  </a>
+</section>
+{% endblock %}

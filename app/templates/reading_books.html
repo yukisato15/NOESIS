@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>読書メモ（本ごと）</h2>
+  <p class="muted">本を選ぶと、その本のメモ一覧が見られます。</p>
+  {% if books %}
+    <ul class="entry-list">
+      {% for book in books %}
+        <li>
+          <div class="entry-meta">
+            <a href="/reading-notes/books/{{ book.id }}" class="entry-title">{{ book.title }}</a>
+          </div>
+          <div class="muted">
+            {% if book.author %}{{ book.author }}{% endif %}
+            {% if book.isbn %} / ISBN {{ book.isbn }}{% endif %}
+          </div>
+          <div class="tags">
+            <span class="tag">メモ {{ book.note_count }}</span>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>まだ読書メモがありません。</p>
+  {% endif %}
+</section>
+{% endblock %}

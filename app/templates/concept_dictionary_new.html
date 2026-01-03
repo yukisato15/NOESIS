@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>概念辞書を作成</h2>
+  <form method="post" action="/concepts/save" class="stack form-validate">
+    <p class="form-error" hidden></p>
+    <label>
+      概念名
+      <input type="text" name="title" required />
+    </label>
+    <label>
+      本文
+      <textarea name="body" rows="10" required></textarea>
+    </label>
+    <button type="submit">保存</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  {% if memo %}
+    <h2>{{ memo.title }}</h2>
+    <div class="muted">更新: {{ memo.updated_at }}</div>
+    <pre>{{ memo.content }}</pre>
+  {% else %}
+    <p class="muted">概念メモが見つかりません。</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>AI整理</h2>
+  <div class="stack">
+    <form method="post" action="/concept-memos/{{ memo.id }}/summarize">
+      <button type="submit">要約を生成</button>
+    </form>
+    <form method="post" action="/concept-memos/{{ memo.id }}/extract">
+      <button type="submit">概念候補を抽出</button>
+    </form>
+  </div>
+
+  <div class="panel nested">
+    <h3>要約</h3>
+    {% if summary %}
+      <pre>{{ summary }}</pre>
+    {% else %}
+      <p class="muted">まだ要約がありません。</p>
+    {% endif %}
+  </div>
+
+  <div class="panel nested">
+    <h3>概念候補</h3>
+    {% if extracted %}
+      <ul class="entry-list">
+        {% for item in extracted %}
+          <li>
+            <div class="hub-title">{{ item.title }}</div>
+            {% if item.note %}
+              <div class="muted">{{ item.note }}</div>
+            {% endif %}
+            <form method="post" action="/concept-memos/{{ memo.id }}/promote" class="stack">
+              <input type="hidden" name="concept_title" value="{{ item.title }}" />
+              <input type="hidden" name="concept_note" value="{{ item.note }}" />
+              <button type="submit">概念辞書へ昇格</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">まだ抽出結果がありません。</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="panel">
+  <h2>関連する概念辞書</h2>
+  {% if linked_concepts %}
+    <ul class="entry-list">
+      {% for concept in linked_concepts %}
+        <li>
+          <a class="entry-title" href="/concepts/{{ concept.id }}">{{ concept.title }}</a>
+          <div class="muted">更新: {{ concept.updated_at }}</div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">まだ関連付けがありません。</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>対話AI</h2>
+  <form method="post" action="/concept-memos/{{ memo.id }}/chat" class="stack">
+    <textarea name="chat_log" rows="1" style="display:none">{{ chat_log }}</textarea>
+    <label>
+      質問
+      <textarea name="chat_question" rows="3" placeholder="思考の焦点や問いを入力"></textarea>
+    </label>
+    {% if chat_answer %}
+      <div class="muted">最新の返答: {{ chat_answer }}</div>
+    {% endif %}
+    <button type="submit">質問する</button>
+  </form>
+
+  {% if chat_log %}
+    <form method="post" action="/concept-memos/{{ memo.id }}/chat/save" class="stack">
+      <label>
+        会話ログ
+        <textarea name="chat_log" rows="6" readonly>{{ chat_log }}</textarea>
+      </label>
+      <button type="submit">ログを保存</button>
+    </form>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>保存済みの会話ログ</h2>
+  {% if sessions %}
+    <ul class="entry-list">
+      {% for session in sessions %}
+        <li>
+          <div class="muted">{{ session.created_at }}</div>
+          <pre>{{ session.content }}</pre>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">保存済みログはありません。</p>
+  {% endif %}
+</section>
+{% endblock %}

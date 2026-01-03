@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>{{ dictionary_label }}</h2>
+  <p class="muted">{{ dictionary_description }}</p>
+  <form method="post" action="/dictionary/preview" class="stack form-validate">
+    <p class="form-error" aria-live="polite" hidden></p>
+    <input type="hidden" name="dictionary_type" value="{{ dictionary_type }}" />
+    <label>
+      単語 / 言い回し
+      <input type="text" name="term" placeholder="{{ dictionary_placeholder }}" required />
+    </label>
+    <div class="action-bar">
+      <button type="submit">AI生成</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
