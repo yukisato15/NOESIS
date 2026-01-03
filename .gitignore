@@ -1,0 +1,8 @@
+.venv/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/reading_failures.*
+__pycache__/
+*.pyc
+.DS_Store
