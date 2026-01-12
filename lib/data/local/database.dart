@@ -31,6 +31,9 @@ import 'dao/concept_memos_dao.dart';
 import 'dao/daily_memos_dao.dart';
 import 'dao/dictionaries_dao.dart';
 import 'dao/philosophical_dialogues_dao.dart';
+import 'dao/quotes_dao.dart';
+import 'dao/books_dao.dart';
+import 'dao/reading_memos_dao.dart';
 
 part 'database.g.dart';
 
@@ -65,6 +68,9 @@ part 'database.g.dart';
     DailyMemosDao,
     DictionariesDao,
     PhilosophicalDialoguesDao,
+    QuotesDao,
+    BooksDao,
+    ReadingMemosDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -161,7 +167,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   Future<void> _normalizeDateTimeColumns() async {
     const tables = <String, List<String>>{
@@ -1271,6 +1277,14 @@ class AppDatabase extends _$AppDatabase {
       if (from < 9) {
         await m.addColumn(conceptDictionaries, conceptDictionaries.gyaruExplanation);
         await m.addColumn(conceptDictionaries, conceptDictionaries.childExplanation);
+      }
+
+      if (from < 10) {
+        // Add new columns to quotes table for Quote Capture feature
+        await m.addColumn(quotes, quotes.sectionTitle);
+        await m.addColumn(quotes, quotes.sourceImagePath);
+        await m.addColumn(quotes, quotes.createdAt);
+        await m.addColumn(quotes, quotes.updatedAt);
       }
     },
   );

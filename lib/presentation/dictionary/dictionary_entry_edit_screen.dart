@@ -4,11 +4,18 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'dart:io';
+
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+
 import '../../core/ai/ai_client.dart';
 import '../../core/ai/ai_mode.dart';
 import '../../core/ai/search_client.dart';
 import '../../core/theme/app_palette.dart';
-import '../../core/utils/image_ocr_helper.dart';
+import '../../core/widgets/live_text_image_view.dart';
 import '../../data/local/database.dart';
 import '../../data/local/tables/dictionary_fields_table.dart';
 import '../shared/surface_field.dart';
@@ -97,6 +104,9 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isGenerating = false;
+
+  // Quote Capture用の画像管理
+  XFile? _sourceImage;
 
   // AIモード選択
   AIMode _selectedMode = AIMode.standard;
@@ -484,50 +494,73 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
     }
   }
 
-  Future<void> _scanImageForText() async {
-    setState(() => _isGenerating = true);
-
+  Future<void> _takePhoto() async {
     try {
-      final result = await ImageOcrHelper.pickCropAndRecognize(
-        context: context,
-        cropEnabled: true,
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
       );
 
-      if (result == null || !mounted) {
-        setState(() => _isGenerating = false);
-        return;
-      }
-
-      if (!result.hasText) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('テキストが検出されませんでした')),
-          );
-        }
-        setState(() => _isGenerating = false);
-        return;
-      }
-
-      // 見出し語フィールドにOCRテキストを設定
-      _headwordController.text = result.recognizedText.trim();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('テキストを読み込みました')),
-        );
+      if (image != null) {
+        setState(() {
+          _sourceImage = image;
+        });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラーが発生しました: $e')),
+          SnackBar(content: Text('撮影に失敗しました: $e')),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isGenerating = false);
       }
     }
   }
+
+  Future<void> _pickSourceImage() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        setState(() {
+          _sourceImage = image;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('画像の選択に失敗しました: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _pasteFromClipboard() async {
+    try {
+      final ClipboardData? data = await Clipboard.getData('text/plain');
+      if (data != null && data.text != null) {
+        setState(() {
+          _headwordController.text = data.text!;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('クリップボードから貼り付けました')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('貼り付けに失敗しました: $e')),
+        );
+      }
+    }
+  }
+
 
   Future<void> _refineWithAI() async {
     final instruction = await showDialog<String>(
@@ -687,17 +720,81 @@ $instruction
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // 見出し語入力（一番上）
           SurfaceField(
             label: '見出し語',
             hintText: '例: コンテキスト・スイッチング',
             controller: _headwordController,
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.camera_alt),
-              tooltip: '画像から読み取り',
-              onPressed: _isGenerating ? null : _scanImageForText,
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.camera_alt),
+                  tooltip: 'カメラで撮影',
+                  onPressed: _takePhoto,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.photo_library),
+                  tooltip: 'ギャラリーから選択',
+                  onPressed: _pickSourceImage,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.content_paste),
+                  tooltip: 'クリップボードから貼り付け',
+                  onPressed: _pasteFromClipboard,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          // 画像プレビュー（撮影後のみ表示）
+          if (_sourceImage != null) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '撮影した画像',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            setState(() {
+                              _sourceImage = null;
+                            });
+                          },
+                          tooltip: '画像を削除',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '※ 2本指でズーム → 画像を長押しして範囲選択 → コピー → 上の貼り付けボタン',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LiveTextImageView(
+                        imagePath: _sourceImage!.path,
+                        height: 400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           SurfaceCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

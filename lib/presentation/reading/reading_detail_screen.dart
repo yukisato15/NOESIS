@@ -4,10 +4,10 @@ import '../../core/theme/app_palette.dart';
 import '../../data/local/database.dart';
 import '../../data/local/tables/entries_table.dart';
 import 'package:intl/intl.dart';
-import 'dart:convert';
 import '../../core/ai/ai_client.dart';
 import '../../core/ai/prompts/dictionary_prompts.dart';
 import '../dictionary/dictionary_detail_screen.dart';
+import 'quote_add_screen.dart';
 
 class ReadingDetailScreen extends StatefulWidget {
   final int entryId;
@@ -22,6 +22,7 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
   final AppDatabase _db = AppDatabase();
   final AIClient _aiClient = AIClient.instance;
   Entry? _entry;
+  List<Quote> _quotes = [];
   bool _isLoading = true;
   bool _isEditing = false;
   bool _isPromoting = false;
@@ -75,9 +76,12 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
     });
 
     final entry = await _db.entriesDao.getEntryById(widget.entryId);
+    final quotes = await _db.quotesDao.getQuotesByEntryId(widget.entryId);
+
     if (entry != null) {
       setState(() {
         _entry = entry;
+        _quotes = quotes;
         _titleController.text = entry.title;
         _bodyController.text = entry.body;
         _bookController.text = entry.reading ?? '';
@@ -246,6 +250,22 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
     }
   }
 
+  Future<void> _navigateToAddQuote() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => QuoteAddScreen(
+          entryId: widget.entryId,
+          bookTitle: _entry!.reading ?? '書籍名未設定',
+        ),
+      ),
+    );
+
+    if (result == true) {
+      // Reload quotes after adding a new one
+      _loadEntry();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -386,6 +406,8 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: 32),
+          _buildQuotesSection(),
+          const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: _isPromoting ? null : _promoteToDictionary,
             icon: _isPromoting
@@ -455,6 +477,147 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
             maxLines: 15,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuotesSection() {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.format_quote, color: AppPalette.reading, size: 28),
+            const SizedBox(width: 8),
+            Text(
+              '引用メモ',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppPalette.reading,
+              ),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: _navigateToAddQuote,
+              icon: const Icon(Icons.add),
+              label: const Text('追加'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppPalette.reading,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_quotes.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppPalette.soften(AppPalette.reading, 0.95),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(Icons.format_quote, size: 48, color: theme.colorScheme.outline),
+                  const SizedBox(height: 8),
+                  Text(
+                    '引用メモがまだありません',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'iOS Live Textで書籍からテキストをコピーして追加',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          Column(
+            children: _quotes.map((quote) => _buildQuoteCard(quote)).toList(),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildQuoteCard(Quote quote) {
+    final theme = Theme.of(context);
+    final dateFormat = DateFormat('yyyy/MM/dd');
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: AppPalette.soften(AppPalette.reading, 0.95),
+      child: InkWell(
+        onTap: () {
+          // TODO: Navigate to quote detail/edit screen
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (quote.sectionTitle != null && quote.sectionTitle!.isNotEmpty) ...[
+                Text(
+                  quote.sectionTitle!,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: AppPalette.reading,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border(
+                    left: BorderSide(
+                      color: AppPalette.reading,
+                      width: 3,
+                    ),
+                  ),
+                ),
+                child: Text(
+                  quote.quoteText,
+                  style: theme.textTheme.bodyMedium,
+                  maxLines: 5,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  if (quote.pageOrLoc != null && quote.pageOrLoc!.isNotEmpty) ...[
+                    Icon(Icons.bookmark_border, size: 14, color: theme.colorScheme.outline),
+                    const SizedBox(width: 4),
+                    Text(
+                      quote.pageOrLoc!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  Icon(Icons.calendar_today, size: 14, color: theme.colorScheme.outline),
+                  const SizedBox(width: 4),
+                  Text(
+                    dateFormat.format(quote.createdAt),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

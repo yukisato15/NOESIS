@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../search/search_screen.dart';
 import '../dictionary/dictionary_screen.dart';
-import '../reading/reading_screen.dart';
+import '../reading/books_list_screen.dart';
 import '../thinking/thinking_screen.dart';
 import '../daily/daily_memo_screen.dart';
 
@@ -49,11 +49,11 @@ class HomeScreen extends StatelessWidget {
                   icon: ArchiveIconType.reading,
                   title: '読書アーカイブ',
                   subtitle: '本ごとに残す',
-                  detail: '本データ・読書メモ・読書感想',
+                  detail: '書籍情報・読書メモ・AI対話',
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => const ReadingScreen(),
+                        builder: (_) => const BooksListScreen(),
                       ),
                     );
                   },

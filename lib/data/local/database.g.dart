@@ -2393,6 +2393,37 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
   late final GeneratedColumn<String> author = GeneratedColumn<String>(
     'author',
     aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _genreMeta = const VerificationMeta('genre');
+  @override
+  late final GeneratedColumn<String> genre = GeneratedColumn<String>(
+    'genre',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _publisherMeta = const VerificationMeta(
+    'publisher',
+  );
+  @override
+  late final GeneratedColumn<String> publisher = GeneratedColumn<String>(
+    'publisher',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _publishedDateMeta = const VerificationMeta(
+    'publishedDate',
+  );
+  @override
+  late final GeneratedColumn<String> publishedDate = GeneratedColumn<String>(
+    'published_date',
+    aliasedName,
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
@@ -2406,17 +2437,47 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _overviewMeta = const VerificationMeta(
-    'overview',
+  static const VerificationMeta _synopsisMeta = const VerificationMeta(
+    'synopsis',
   );
   @override
-  late final GeneratedColumn<String> overview = GeneratedColumn<String>(
-    'overview',
+  late final GeneratedColumn<String> synopsis = GeneratedColumn<String>(
+    'synopsis',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _ratingMeta = const VerificationMeta('rating');
+  @override
+  late final GeneratedColumn<String> rating = GeneratedColumn<String>(
+    'rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _relatedUrlMeta = const VerificationMeta(
+    'relatedUrl',
+  );
+  @override
+  late final GeneratedColumn<String> relatedUrl = GeneratedColumn<String>(
+    'related_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reviewSummaryMeta = const VerificationMeta(
+    'reviewSummary',
+  );
+  @override
+  late final GeneratedColumn<String> reviewSummary = GeneratedColumn<String>(
+    'review_summary',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
@@ -2447,8 +2508,14 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     id,
     title,
     author,
+    genre,
+    publisher,
+    publishedDate,
     isbn,
-    overview,
+    synopsis,
+    rating,
+    relatedUrl,
+    reviewSummary,
     createdAt,
     updatedAt,
   ];
@@ -2480,6 +2547,29 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         _authorMeta,
         author.isAcceptableOrUnknown(data['author']!, _authorMeta),
       );
+    } else if (isInserting) {
+      context.missing(_authorMeta);
+    }
+    if (data.containsKey('genre')) {
+      context.handle(
+        _genreMeta,
+        genre.isAcceptableOrUnknown(data['genre']!, _genreMeta),
+      );
+    }
+    if (data.containsKey('publisher')) {
+      context.handle(
+        _publisherMeta,
+        publisher.isAcceptableOrUnknown(data['publisher']!, _publisherMeta),
+      );
+    }
+    if (data.containsKey('published_date')) {
+      context.handle(
+        _publishedDateMeta,
+        publishedDate.isAcceptableOrUnknown(
+          data['published_date']!,
+          _publishedDateMeta,
+        ),
+      );
     }
     if (data.containsKey('isbn')) {
       context.handle(
@@ -2487,10 +2577,31 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         isbn.isAcceptableOrUnknown(data['isbn']!, _isbnMeta),
       );
     }
-    if (data.containsKey('overview')) {
+    if (data.containsKey('synopsis')) {
       context.handle(
-        _overviewMeta,
-        overview.isAcceptableOrUnknown(data['overview']!, _overviewMeta),
+        _synopsisMeta,
+        synopsis.isAcceptableOrUnknown(data['synopsis']!, _synopsisMeta),
+      );
+    }
+    if (data.containsKey('rating')) {
+      context.handle(
+        _ratingMeta,
+        rating.isAcceptableOrUnknown(data['rating']!, _ratingMeta),
+      );
+    }
+    if (data.containsKey('related_url')) {
+      context.handle(
+        _relatedUrlMeta,
+        relatedUrl.isAcceptableOrUnknown(data['related_url']!, _relatedUrlMeta),
+      );
+    }
+    if (data.containsKey('review_summary')) {
+      context.handle(
+        _reviewSummaryMeta,
+        reviewSummary.isAcceptableOrUnknown(
+          data['review_summary']!,
+          _reviewSummaryMeta,
+        ),
       );
     }
     if (data.containsKey('created_at')) {
@@ -2525,15 +2636,39 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
       author: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}author'],
+      )!,
+      genre: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}genre'],
+      ),
+      publisher: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}publisher'],
+      ),
+      publishedDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}published_date'],
       ),
       isbn: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}isbn'],
       ),
-      overview: attachedDatabase.typeMapping.read(
+      synopsis: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}overview'],
-      )!,
+        data['${effectivePrefix}synopsis'],
+      ),
+      rating: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rating'],
+      ),
+      relatedUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}related_url'],
+      ),
+      reviewSummary: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}review_summary'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -2553,18 +2688,54 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
 
 class Book extends DataClass implements Insertable<Book> {
   final int id;
+
+  /// 書名
   final String title;
-  final String? author;
+
+  /// 著者名
+  final String author;
+
+  /// ジャンル（手入力またはAI補完）
+  final String? genre;
+
+  /// 出版社（AI補完）
+  final String? publisher;
+
+  /// 出版年月日（AI補完）
+  final String? publishedDate;
+
+  /// ISBN（AI補完）
   final String? isbn;
-  final String overview;
+
+  /// あらすじ概要（AI補完）
+  final String? synopsis;
+
+  /// 評価（★や短文、AI補完）
+  final String? rating;
+
+  /// 関連URL（AI補完）
+  final String? relatedUrl;
+
+  /// 一般的なレビュー要約（AI補完）
+  final String? reviewSummary;
+
+  /// 登録日時（＝読み始めた日時）
   final DateTime createdAt;
+
+  /// 更新日時
   final DateTime updatedAt;
   const Book({
     required this.id,
     required this.title,
-    this.author,
+    required this.author,
+    this.genre,
+    this.publisher,
+    this.publishedDate,
     this.isbn,
-    required this.overview,
+    this.synopsis,
+    this.rating,
+    this.relatedUrl,
+    this.reviewSummary,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -2573,13 +2744,31 @@ class Book extends DataClass implements Insertable<Book> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['title'] = Variable<String>(title);
-    if (!nullToAbsent || author != null) {
-      map['author'] = Variable<String>(author);
+    map['author'] = Variable<String>(author);
+    if (!nullToAbsent || genre != null) {
+      map['genre'] = Variable<String>(genre);
+    }
+    if (!nullToAbsent || publisher != null) {
+      map['publisher'] = Variable<String>(publisher);
+    }
+    if (!nullToAbsent || publishedDate != null) {
+      map['published_date'] = Variable<String>(publishedDate);
     }
     if (!nullToAbsent || isbn != null) {
       map['isbn'] = Variable<String>(isbn);
     }
-    map['overview'] = Variable<String>(overview);
+    if (!nullToAbsent || synopsis != null) {
+      map['synopsis'] = Variable<String>(synopsis);
+    }
+    if (!nullToAbsent || rating != null) {
+      map['rating'] = Variable<String>(rating);
+    }
+    if (!nullToAbsent || relatedUrl != null) {
+      map['related_url'] = Variable<String>(relatedUrl);
+    }
+    if (!nullToAbsent || reviewSummary != null) {
+      map['review_summary'] = Variable<String>(reviewSummary);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -2589,11 +2778,29 @@ class Book extends DataClass implements Insertable<Book> {
     return BooksCompanion(
       id: Value(id),
       title: Value(title),
-      author: author == null && nullToAbsent
+      author: Value(author),
+      genre: genre == null && nullToAbsent
           ? const Value.absent()
-          : Value(author),
+          : Value(genre),
+      publisher: publisher == null && nullToAbsent
+          ? const Value.absent()
+          : Value(publisher),
+      publishedDate: publishedDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(publishedDate),
       isbn: isbn == null && nullToAbsent ? const Value.absent() : Value(isbn),
-      overview: Value(overview),
+      synopsis: synopsis == null && nullToAbsent
+          ? const Value.absent()
+          : Value(synopsis),
+      rating: rating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rating),
+      relatedUrl: relatedUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(relatedUrl),
+      reviewSummary: reviewSummary == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reviewSummary),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -2607,9 +2814,15 @@ class Book extends DataClass implements Insertable<Book> {
     return Book(
       id: serializer.fromJson<int>(json['id']),
       title: serializer.fromJson<String>(json['title']),
-      author: serializer.fromJson<String?>(json['author']),
+      author: serializer.fromJson<String>(json['author']),
+      genre: serializer.fromJson<String?>(json['genre']),
+      publisher: serializer.fromJson<String?>(json['publisher']),
+      publishedDate: serializer.fromJson<String?>(json['publishedDate']),
       isbn: serializer.fromJson<String?>(json['isbn']),
-      overview: serializer.fromJson<String>(json['overview']),
+      synopsis: serializer.fromJson<String?>(json['synopsis']),
+      rating: serializer.fromJson<String?>(json['rating']),
+      relatedUrl: serializer.fromJson<String?>(json['relatedUrl']),
+      reviewSummary: serializer.fromJson<String?>(json['reviewSummary']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -2620,9 +2833,15 @@ class Book extends DataClass implements Insertable<Book> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'title': serializer.toJson<String>(title),
-      'author': serializer.toJson<String?>(author),
+      'author': serializer.toJson<String>(author),
+      'genre': serializer.toJson<String?>(genre),
+      'publisher': serializer.toJson<String?>(publisher),
+      'publishedDate': serializer.toJson<String?>(publishedDate),
       'isbn': serializer.toJson<String?>(isbn),
-      'overview': serializer.toJson<String>(overview),
+      'synopsis': serializer.toJson<String?>(synopsis),
+      'rating': serializer.toJson<String?>(rating),
+      'relatedUrl': serializer.toJson<String?>(relatedUrl),
+      'reviewSummary': serializer.toJson<String?>(reviewSummary),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -2631,17 +2850,33 @@ class Book extends DataClass implements Insertable<Book> {
   Book copyWith({
     int? id,
     String? title,
-    Value<String?> author = const Value.absent(),
+    String? author,
+    Value<String?> genre = const Value.absent(),
+    Value<String?> publisher = const Value.absent(),
+    Value<String?> publishedDate = const Value.absent(),
     Value<String?> isbn = const Value.absent(),
-    String? overview,
+    Value<String?> synopsis = const Value.absent(),
+    Value<String?> rating = const Value.absent(),
+    Value<String?> relatedUrl = const Value.absent(),
+    Value<String?> reviewSummary = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Book(
     id: id ?? this.id,
     title: title ?? this.title,
-    author: author.present ? author.value : this.author,
+    author: author ?? this.author,
+    genre: genre.present ? genre.value : this.genre,
+    publisher: publisher.present ? publisher.value : this.publisher,
+    publishedDate: publishedDate.present
+        ? publishedDate.value
+        : this.publishedDate,
     isbn: isbn.present ? isbn.value : this.isbn,
-    overview: overview ?? this.overview,
+    synopsis: synopsis.present ? synopsis.value : this.synopsis,
+    rating: rating.present ? rating.value : this.rating,
+    relatedUrl: relatedUrl.present ? relatedUrl.value : this.relatedUrl,
+    reviewSummary: reviewSummary.present
+        ? reviewSummary.value
+        : this.reviewSummary,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -2650,8 +2885,20 @@ class Book extends DataClass implements Insertable<Book> {
       id: data.id.present ? data.id.value : this.id,
       title: data.title.present ? data.title.value : this.title,
       author: data.author.present ? data.author.value : this.author,
+      genre: data.genre.present ? data.genre.value : this.genre,
+      publisher: data.publisher.present ? data.publisher.value : this.publisher,
+      publishedDate: data.publishedDate.present
+          ? data.publishedDate.value
+          : this.publishedDate,
       isbn: data.isbn.present ? data.isbn.value : this.isbn,
-      overview: data.overview.present ? data.overview.value : this.overview,
+      synopsis: data.synopsis.present ? data.synopsis.value : this.synopsis,
+      rating: data.rating.present ? data.rating.value : this.rating,
+      relatedUrl: data.relatedUrl.present
+          ? data.relatedUrl.value
+          : this.relatedUrl,
+      reviewSummary: data.reviewSummary.present
+          ? data.reviewSummary.value
+          : this.reviewSummary,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -2663,8 +2910,14 @@ class Book extends DataClass implements Insertable<Book> {
           ..write('id: $id, ')
           ..write('title: $title, ')
           ..write('author: $author, ')
+          ..write('genre: $genre, ')
+          ..write('publisher: $publisher, ')
+          ..write('publishedDate: $publishedDate, ')
           ..write('isbn: $isbn, ')
-          ..write('overview: $overview, ')
+          ..write('synopsis: $synopsis, ')
+          ..write('rating: $rating, ')
+          ..write('relatedUrl: $relatedUrl, ')
+          ..write('reviewSummary: $reviewSummary, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2672,8 +2925,21 @@ class Book extends DataClass implements Insertable<Book> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, title, author, isbn, overview, createdAt, updatedAt);
+  int get hashCode => Object.hash(
+    id,
+    title,
+    author,
+    genre,
+    publisher,
+    publishedDate,
+    isbn,
+    synopsis,
+    rating,
+    relatedUrl,
+    reviewSummary,
+    createdAt,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2681,8 +2947,14 @@ class Book extends DataClass implements Insertable<Book> {
           other.id == this.id &&
           other.title == this.title &&
           other.author == this.author &&
+          other.genre == this.genre &&
+          other.publisher == this.publisher &&
+          other.publishedDate == this.publishedDate &&
           other.isbn == this.isbn &&
-          other.overview == this.overview &&
+          other.synopsis == this.synopsis &&
+          other.rating == this.rating &&
+          other.relatedUrl == this.relatedUrl &&
+          other.reviewSummary == this.reviewSummary &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -2690,35 +2962,60 @@ class Book extends DataClass implements Insertable<Book> {
 class BooksCompanion extends UpdateCompanion<Book> {
   final Value<int> id;
   final Value<String> title;
-  final Value<String?> author;
+  final Value<String> author;
+  final Value<String?> genre;
+  final Value<String?> publisher;
+  final Value<String?> publishedDate;
   final Value<String?> isbn;
-  final Value<String> overview;
+  final Value<String?> synopsis;
+  final Value<String?> rating;
+  final Value<String?> relatedUrl;
+  final Value<String?> reviewSummary;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   const BooksCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
     this.author = const Value.absent(),
+    this.genre = const Value.absent(),
+    this.publisher = const Value.absent(),
+    this.publishedDate = const Value.absent(),
     this.isbn = const Value.absent(),
-    this.overview = const Value.absent(),
+    this.synopsis = const Value.absent(),
+    this.rating = const Value.absent(),
+    this.relatedUrl = const Value.absent(),
+    this.reviewSummary = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
   BooksCompanion.insert({
     this.id = const Value.absent(),
     required String title,
-    this.author = const Value.absent(),
+    required String author,
+    this.genre = const Value.absent(),
+    this.publisher = const Value.absent(),
+    this.publishedDate = const Value.absent(),
     this.isbn = const Value.absent(),
-    this.overview = const Value.absent(),
+    this.synopsis = const Value.absent(),
+    this.rating = const Value.absent(),
+    this.relatedUrl = const Value.absent(),
+    this.reviewSummary = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
-  }) : title = Value(title);
+  }) : title = Value(title),
+       author = Value(author);
   static Insertable<Book> custom({
     Expression<int>? id,
     Expression<String>? title,
     Expression<String>? author,
+    Expression<String>? genre,
+    Expression<String>? publisher,
+    Expression<String>? publishedDate,
     Expression<String>? isbn,
-    Expression<String>? overview,
+    Expression<String>? synopsis,
+    Expression<String>? rating,
+    Expression<String>? relatedUrl,
+    Expression<String>? reviewSummary,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
   }) {
@@ -2726,8 +3023,14 @@ class BooksCompanion extends UpdateCompanion<Book> {
       if (id != null) 'id': id,
       if (title != null) 'title': title,
       if (author != null) 'author': author,
+      if (genre != null) 'genre': genre,
+      if (publisher != null) 'publisher': publisher,
+      if (publishedDate != null) 'published_date': publishedDate,
       if (isbn != null) 'isbn': isbn,
-      if (overview != null) 'overview': overview,
+      if (synopsis != null) 'synopsis': synopsis,
+      if (rating != null) 'rating': rating,
+      if (relatedUrl != null) 'related_url': relatedUrl,
+      if (reviewSummary != null) 'review_summary': reviewSummary,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
@@ -2736,9 +3039,15 @@ class BooksCompanion extends UpdateCompanion<Book> {
   BooksCompanion copyWith({
     Value<int>? id,
     Value<String>? title,
-    Value<String?>? author,
+    Value<String>? author,
+    Value<String?>? genre,
+    Value<String?>? publisher,
+    Value<String?>? publishedDate,
     Value<String?>? isbn,
-    Value<String>? overview,
+    Value<String?>? synopsis,
+    Value<String?>? rating,
+    Value<String?>? relatedUrl,
+    Value<String?>? reviewSummary,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
   }) {
@@ -2746,8 +3055,14 @@ class BooksCompanion extends UpdateCompanion<Book> {
       id: id ?? this.id,
       title: title ?? this.title,
       author: author ?? this.author,
+      genre: genre ?? this.genre,
+      publisher: publisher ?? this.publisher,
+      publishedDate: publishedDate ?? this.publishedDate,
       isbn: isbn ?? this.isbn,
-      overview: overview ?? this.overview,
+      synopsis: synopsis ?? this.synopsis,
+      rating: rating ?? this.rating,
+      relatedUrl: relatedUrl ?? this.relatedUrl,
+      reviewSummary: reviewSummary ?? this.reviewSummary,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -2765,11 +3080,29 @@ class BooksCompanion extends UpdateCompanion<Book> {
     if (author.present) {
       map['author'] = Variable<String>(author.value);
     }
+    if (genre.present) {
+      map['genre'] = Variable<String>(genre.value);
+    }
+    if (publisher.present) {
+      map['publisher'] = Variable<String>(publisher.value);
+    }
+    if (publishedDate.present) {
+      map['published_date'] = Variable<String>(publishedDate.value);
+    }
     if (isbn.present) {
       map['isbn'] = Variable<String>(isbn.value);
     }
-    if (overview.present) {
-      map['overview'] = Variable<String>(overview.value);
+    if (synopsis.present) {
+      map['synopsis'] = Variable<String>(synopsis.value);
+    }
+    if (rating.present) {
+      map['rating'] = Variable<String>(rating.value);
+    }
+    if (relatedUrl.present) {
+      map['related_url'] = Variable<String>(relatedUrl.value);
+    }
+    if (reviewSummary.present) {
+      map['review_summary'] = Variable<String>(reviewSummary.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -2786,8 +3119,14 @@ class BooksCompanion extends UpdateCompanion<Book> {
           ..write('id: $id, ')
           ..write('title: $title, ')
           ..write('author: $author, ')
+          ..write('genre: $genre, ')
+          ..write('publisher: $publisher, ')
+          ..write('publishedDate: $publishedDate, ')
           ..write('isbn: $isbn, ')
-          ..write('overview: $overview, ')
+          ..write('synopsis: $synopsis, ')
+          ..write('rating: $rating, ')
+          ..write('relatedUrl: $relatedUrl, ')
+          ..write('reviewSummary: $reviewSummary, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2834,6 +3173,28 @@ class $ReadingMemosTable extends ReadingMemos
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _sectionTitleMeta = const VerificationMeta(
+    'sectionTitle',
+  );
+  @override
+  late final GeneratedColumn<String> sectionTitle = GeneratedColumn<String>(
+    'section_title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pageNumberMeta = const VerificationMeta(
+    'pageNumber',
+  );
+  @override
+  late final GeneratedColumn<String> pageNumber = GeneratedColumn<String>(
+    'page_number',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -2846,8 +3207,27 @@ class $ReadingMemosTable extends ReadingMemos
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, bookId, content, createdAt];
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    bookId,
+    content,
+    sectionTitle,
+    pageNumber,
+    createdAt,
+    updatedAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2879,10 +3259,31 @@ class $ReadingMemosTable extends ReadingMemos
     } else if (isInserting) {
       context.missing(_contentMeta);
     }
+    if (data.containsKey('section_title')) {
+      context.handle(
+        _sectionTitleMeta,
+        sectionTitle.isAcceptableOrUnknown(
+          data['section_title']!,
+          _sectionTitleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('page_number')) {
+      context.handle(
+        _pageNumberMeta,
+        pageNumber.isAcceptableOrUnknown(data['page_number']!, _pageNumberMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
       );
     }
     return context;
@@ -2906,10 +3307,22 @@ class $ReadingMemosTable extends ReadingMemos
         DriftSqlType.string,
         data['${effectivePrefix}content'],
       )!,
+      sectionTitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}section_title'],
+      ),
+      pageNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}page_number'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
     );
   }
 
@@ -2921,14 +3334,32 @@ class $ReadingMemosTable extends ReadingMemos
 
 class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
   final int id;
+
+  /// 所属する書籍ID
   final int bookId;
+
+  /// 本文（手入力またはLive Textでコピペ）
   final String content;
+
+  /// 小タイトル（章名、トピック名など）
+  final String? sectionTitle;
+
+  /// ページ番号
+  final String? pageNumber;
+
+  /// 作成日時
   final DateTime createdAt;
+
+  /// 更新日時
+  final DateTime? updatedAt;
   const ReadingMemo({
     required this.id,
     required this.bookId,
     required this.content,
+    this.sectionTitle,
+    this.pageNumber,
     required this.createdAt,
+    this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2936,7 +3367,16 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
     map['id'] = Variable<int>(id);
     map['book_id'] = Variable<int>(bookId);
     map['content'] = Variable<String>(content);
+    if (!nullToAbsent || sectionTitle != null) {
+      map['section_title'] = Variable<String>(sectionTitle);
+    }
+    if (!nullToAbsent || pageNumber != null) {
+      map['page_number'] = Variable<String>(pageNumber);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
     return map;
   }
 
@@ -2945,7 +3385,16 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
       id: Value(id),
       bookId: Value(bookId),
       content: Value(content),
+      sectionTitle: sectionTitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sectionTitle),
+      pageNumber: pageNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pageNumber),
       createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -2958,7 +3407,10 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
       id: serializer.fromJson<int>(json['id']),
       bookId: serializer.fromJson<int>(json['bookId']),
       content: serializer.fromJson<String>(json['content']),
+      sectionTitle: serializer.fromJson<String?>(json['sectionTitle']),
+      pageNumber: serializer.fromJson<String?>(json['pageNumber']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -2968,7 +3420,10 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
       'id': serializer.toJson<int>(id),
       'bookId': serializer.toJson<int>(bookId),
       'content': serializer.toJson<String>(content),
+      'sectionTitle': serializer.toJson<String?>(sectionTitle),
+      'pageNumber': serializer.toJson<String?>(pageNumber),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -2976,19 +3431,32 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
     int? id,
     int? bookId,
     String? content,
+    Value<String?> sectionTitle = const Value.absent(),
+    Value<String?> pageNumber = const Value.absent(),
     DateTime? createdAt,
+    Value<DateTime?> updatedAt = const Value.absent(),
   }) => ReadingMemo(
     id: id ?? this.id,
     bookId: bookId ?? this.bookId,
     content: content ?? this.content,
+    sectionTitle: sectionTitle.present ? sectionTitle.value : this.sectionTitle,
+    pageNumber: pageNumber.present ? pageNumber.value : this.pageNumber,
     createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
   ReadingMemo copyWithCompanion(ReadingMemosCompanion data) {
     return ReadingMemo(
       id: data.id.present ? data.id.value : this.id,
       bookId: data.bookId.present ? data.bookId.value : this.bookId,
       content: data.content.present ? data.content.value : this.content,
+      sectionTitle: data.sectionTitle.present
+          ? data.sectionTitle.value
+          : this.sectionTitle,
+      pageNumber: data.pageNumber.present
+          ? data.pageNumber.value
+          : this.pageNumber,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -2998,13 +3466,24 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
           ..write('id: $id, ')
           ..write('bookId: $bookId, ')
           ..write('content: $content, ')
-          ..write('createdAt: $createdAt')
+          ..write('sectionTitle: $sectionTitle, ')
+          ..write('pageNumber: $pageNumber, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, bookId, content, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    bookId,
+    content,
+    sectionTitle,
+    pageNumber,
+    createdAt,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3012,38 +3491,56 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
           other.id == this.id &&
           other.bookId == this.bookId &&
           other.content == this.content &&
-          other.createdAt == this.createdAt);
+          other.sectionTitle == this.sectionTitle &&
+          other.pageNumber == this.pageNumber &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
 }
 
 class ReadingMemosCompanion extends UpdateCompanion<ReadingMemo> {
   final Value<int> id;
   final Value<int> bookId;
   final Value<String> content;
+  final Value<String?> sectionTitle;
+  final Value<String?> pageNumber;
   final Value<DateTime> createdAt;
+  final Value<DateTime?> updatedAt;
   const ReadingMemosCompanion({
     this.id = const Value.absent(),
     this.bookId = const Value.absent(),
     this.content = const Value.absent(),
+    this.sectionTitle = const Value.absent(),
+    this.pageNumber = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
   });
   ReadingMemosCompanion.insert({
     this.id = const Value.absent(),
     required int bookId,
     required String content,
+    this.sectionTitle = const Value.absent(),
+    this.pageNumber = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
   }) : bookId = Value(bookId),
        content = Value(content);
   static Insertable<ReadingMemo> custom({
     Expression<int>? id,
     Expression<int>? bookId,
     Expression<String>? content,
+    Expression<String>? sectionTitle,
+    Expression<String>? pageNumber,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (bookId != null) 'book_id': bookId,
       if (content != null) 'content': content,
+      if (sectionTitle != null) 'section_title': sectionTitle,
+      if (pageNumber != null) 'page_number': pageNumber,
       if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
     });
   }
 
@@ -3051,13 +3548,19 @@ class ReadingMemosCompanion extends UpdateCompanion<ReadingMemo> {
     Value<int>? id,
     Value<int>? bookId,
     Value<String>? content,
+    Value<String?>? sectionTitle,
+    Value<String?>? pageNumber,
     Value<DateTime>? createdAt,
+    Value<DateTime?>? updatedAt,
   }) {
     return ReadingMemosCompanion(
       id: id ?? this.id,
       bookId: bookId ?? this.bookId,
       content: content ?? this.content,
+      sectionTitle: sectionTitle ?? this.sectionTitle,
+      pageNumber: pageNumber ?? this.pageNumber,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -3073,8 +3576,17 @@ class ReadingMemosCompanion extends UpdateCompanion<ReadingMemo> {
     if (content.present) {
       map['content'] = Variable<String>(content.value);
     }
+    if (sectionTitle.present) {
+      map['section_title'] = Variable<String>(sectionTitle.value);
+    }
+    if (pageNumber.present) {
+      map['page_number'] = Variable<String>(pageNumber.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
     return map;
   }
@@ -3085,7 +3597,10 @@ class ReadingMemosCompanion extends UpdateCompanion<ReadingMemo> {
           ..write('id: $id, ')
           ..write('bookId: $bookId, ')
           ..write('content: $content, ')
-          ..write('createdAt: $createdAt')
+          ..write('sectionTitle: $sectionTitle, ')
+          ..write('pageNumber: $pageNumber, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -7768,6 +8283,17 @@ class $QuotesTable extends Quotes with TableInfo<$QuotesTable, Quote> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _sectionTitleMeta = const VerificationMeta(
+    'sectionTitle',
+  );
+  @override
+  late final GeneratedColumn<String> sectionTitle = GeneratedColumn<String>(
+    'section_title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _noteMeta = const VerificationMeta('note');
   @override
   late final GeneratedColumn<String> note = GeneratedColumn<String>(
@@ -7777,13 +8303,51 @@ class $QuotesTable extends Quotes with TableInfo<$QuotesTable, Quote> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _sourceImagePathMeta = const VerificationMeta(
+    'sourceImagePath',
+  );
+  @override
+  late final GeneratedColumn<String> sourceImagePath = GeneratedColumn<String>(
+    'source_image_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     entryId,
     quoteText,
     pageOrLoc,
+    sectionTitle,
     note,
+    sourceImagePath,
+    createdAt,
+    updatedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -7822,10 +8386,40 @@ class $QuotesTable extends Quotes with TableInfo<$QuotesTable, Quote> {
         pageOrLoc.isAcceptableOrUnknown(data['page_or_loc']!, _pageOrLocMeta),
       );
     }
+    if (data.containsKey('section_title')) {
+      context.handle(
+        _sectionTitleMeta,
+        sectionTitle.isAcceptableOrUnknown(
+          data['section_title']!,
+          _sectionTitleMeta,
+        ),
+      );
+    }
     if (data.containsKey('note')) {
       context.handle(
         _noteMeta,
         note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('source_image_path')) {
+      context.handle(
+        _sourceImagePathMeta,
+        sourceImagePath.isAcceptableOrUnknown(
+          data['source_image_path']!,
+          _sourceImagePathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
       );
     }
     return context;
@@ -7853,9 +8447,25 @@ class $QuotesTable extends Quotes with TableInfo<$QuotesTable, Quote> {
         DriftSqlType.string,
         data['${effectivePrefix}page_or_loc'],
       ),
+      sectionTitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}section_title'],
+      ),
       note: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}note'],
+      ),
+      sourceImagePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_image_path'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
       ),
     );
   }
@@ -7871,13 +8481,21 @@ class Quote extends DataClass implements Insertable<Quote> {
   final int entryId;
   final String quoteText;
   final String? pageOrLoc;
+  final String? sectionTitle;
   final String? note;
+  final String? sourceImagePath;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
   const Quote({
     required this.id,
     required this.entryId,
     required this.quoteText,
     this.pageOrLoc,
+    this.sectionTitle,
     this.note,
+    this.sourceImagePath,
+    required this.createdAt,
+    this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -7888,8 +8506,18 @@ class Quote extends DataClass implements Insertable<Quote> {
     if (!nullToAbsent || pageOrLoc != null) {
       map['page_or_loc'] = Variable<String>(pageOrLoc);
     }
+    if (!nullToAbsent || sectionTitle != null) {
+      map['section_title'] = Variable<String>(sectionTitle);
+    }
     if (!nullToAbsent || note != null) {
       map['note'] = Variable<String>(note);
+    }
+    if (!nullToAbsent || sourceImagePath != null) {
+      map['source_image_path'] = Variable<String>(sourceImagePath);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
     }
     return map;
   }
@@ -7902,7 +8530,17 @@ class Quote extends DataClass implements Insertable<Quote> {
       pageOrLoc: pageOrLoc == null && nullToAbsent
           ? const Value.absent()
           : Value(pageOrLoc),
+      sectionTitle: sectionTitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sectionTitle),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      sourceImagePath: sourceImagePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceImagePath),
+      createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -7916,7 +8554,11 @@ class Quote extends DataClass implements Insertable<Quote> {
       entryId: serializer.fromJson<int>(json['entryId']),
       quoteText: serializer.fromJson<String>(json['quoteText']),
       pageOrLoc: serializer.fromJson<String?>(json['pageOrLoc']),
+      sectionTitle: serializer.fromJson<String?>(json['sectionTitle']),
       note: serializer.fromJson<String?>(json['note']),
+      sourceImagePath: serializer.fromJson<String?>(json['sourceImagePath']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -7927,7 +8569,11 @@ class Quote extends DataClass implements Insertable<Quote> {
       'entryId': serializer.toJson<int>(entryId),
       'quoteText': serializer.toJson<String>(quoteText),
       'pageOrLoc': serializer.toJson<String?>(pageOrLoc),
+      'sectionTitle': serializer.toJson<String?>(sectionTitle),
       'note': serializer.toJson<String?>(note),
+      'sourceImagePath': serializer.toJson<String?>(sourceImagePath),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -7936,13 +8582,23 @@ class Quote extends DataClass implements Insertable<Quote> {
     int? entryId,
     String? quoteText,
     Value<String?> pageOrLoc = const Value.absent(),
+    Value<String?> sectionTitle = const Value.absent(),
     Value<String?> note = const Value.absent(),
+    Value<String?> sourceImagePath = const Value.absent(),
+    DateTime? createdAt,
+    Value<DateTime?> updatedAt = const Value.absent(),
   }) => Quote(
     id: id ?? this.id,
     entryId: entryId ?? this.entryId,
     quoteText: quoteText ?? this.quoteText,
     pageOrLoc: pageOrLoc.present ? pageOrLoc.value : this.pageOrLoc,
+    sectionTitle: sectionTitle.present ? sectionTitle.value : this.sectionTitle,
     note: note.present ? note.value : this.note,
+    sourceImagePath: sourceImagePath.present
+        ? sourceImagePath.value
+        : this.sourceImagePath,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
   Quote copyWithCompanion(QuotesCompanion data) {
     return Quote(
@@ -7950,7 +8606,15 @@ class Quote extends DataClass implements Insertable<Quote> {
       entryId: data.entryId.present ? data.entryId.value : this.entryId,
       quoteText: data.quoteText.present ? data.quoteText.value : this.quoteText,
       pageOrLoc: data.pageOrLoc.present ? data.pageOrLoc.value : this.pageOrLoc,
+      sectionTitle: data.sectionTitle.present
+          ? data.sectionTitle.value
+          : this.sectionTitle,
       note: data.note.present ? data.note.value : this.note,
+      sourceImagePath: data.sourceImagePath.present
+          ? data.sourceImagePath.value
+          : this.sourceImagePath,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -7961,13 +8625,27 @@ class Quote extends DataClass implements Insertable<Quote> {
           ..write('entryId: $entryId, ')
           ..write('quoteText: $quoteText, ')
           ..write('pageOrLoc: $pageOrLoc, ')
-          ..write('note: $note')
+          ..write('sectionTitle: $sectionTitle, ')
+          ..write('note: $note, ')
+          ..write('sourceImagePath: $sourceImagePath, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, entryId, quoteText, pageOrLoc, note);
+  int get hashCode => Object.hash(
+    id,
+    entryId,
+    quoteText,
+    pageOrLoc,
+    sectionTitle,
+    note,
+    sourceImagePath,
+    createdAt,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -7976,7 +8654,11 @@ class Quote extends DataClass implements Insertable<Quote> {
           other.entryId == this.entryId &&
           other.quoteText == this.quoteText &&
           other.pageOrLoc == this.pageOrLoc &&
-          other.note == this.note);
+          other.sectionTitle == this.sectionTitle &&
+          other.note == this.note &&
+          other.sourceImagePath == this.sourceImagePath &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
 }
 
 class QuotesCompanion extends UpdateCompanion<Quote> {
@@ -7984,20 +8666,32 @@ class QuotesCompanion extends UpdateCompanion<Quote> {
   final Value<int> entryId;
   final Value<String> quoteText;
   final Value<String?> pageOrLoc;
+  final Value<String?> sectionTitle;
   final Value<String?> note;
+  final Value<String?> sourceImagePath;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> updatedAt;
   const QuotesCompanion({
     this.id = const Value.absent(),
     this.entryId = const Value.absent(),
     this.quoteText = const Value.absent(),
     this.pageOrLoc = const Value.absent(),
+    this.sectionTitle = const Value.absent(),
     this.note = const Value.absent(),
+    this.sourceImagePath = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
   });
   QuotesCompanion.insert({
     this.id = const Value.absent(),
     required int entryId,
     required String quoteText,
     this.pageOrLoc = const Value.absent(),
+    this.sectionTitle = const Value.absent(),
     this.note = const Value.absent(),
+    this.sourceImagePath = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
   }) : entryId = Value(entryId),
        quoteText = Value(quoteText);
   static Insertable<Quote> custom({
@@ -8005,14 +8699,22 @@ class QuotesCompanion extends UpdateCompanion<Quote> {
     Expression<int>? entryId,
     Expression<String>? quoteText,
     Expression<String>? pageOrLoc,
+    Expression<String>? sectionTitle,
     Expression<String>? note,
+    Expression<String>? sourceImagePath,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (entryId != null) 'entry_id': entryId,
       if (quoteText != null) 'quote_text': quoteText,
       if (pageOrLoc != null) 'page_or_loc': pageOrLoc,
+      if (sectionTitle != null) 'section_title': sectionTitle,
       if (note != null) 'note': note,
+      if (sourceImagePath != null) 'source_image_path': sourceImagePath,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
     });
   }
 
@@ -8021,14 +8723,22 @@ class QuotesCompanion extends UpdateCompanion<Quote> {
     Value<int>? entryId,
     Value<String>? quoteText,
     Value<String?>? pageOrLoc,
+    Value<String?>? sectionTitle,
     Value<String?>? note,
+    Value<String?>? sourceImagePath,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? updatedAt,
   }) {
     return QuotesCompanion(
       id: id ?? this.id,
       entryId: entryId ?? this.entryId,
       quoteText: quoteText ?? this.quoteText,
       pageOrLoc: pageOrLoc ?? this.pageOrLoc,
+      sectionTitle: sectionTitle ?? this.sectionTitle,
       note: note ?? this.note,
+      sourceImagePath: sourceImagePath ?? this.sourceImagePath,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -8047,8 +8757,20 @@ class QuotesCompanion extends UpdateCompanion<Quote> {
     if (pageOrLoc.present) {
       map['page_or_loc'] = Variable<String>(pageOrLoc.value);
     }
+    if (sectionTitle.present) {
+      map['section_title'] = Variable<String>(sectionTitle.value);
+    }
     if (note.present) {
       map['note'] = Variable<String>(note.value);
+    }
+    if (sourceImagePath.present) {
+      map['source_image_path'] = Variable<String>(sourceImagePath.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
     return map;
   }
@@ -8060,7 +8782,11 @@ class QuotesCompanion extends UpdateCompanion<Quote> {
           ..write('entryId: $entryId, ')
           ..write('quoteText: $quoteText, ')
           ..write('pageOrLoc: $pageOrLoc, ')
-          ..write('note: $note')
+          ..write('sectionTitle: $sectionTitle, ')
+          ..write('note: $note, ')
+          ..write('sourceImagePath: $sourceImagePath, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -10639,6 +11365,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final PhilosophicalDialoguesDao philosophicalDialoguesDao =
       PhilosophicalDialoguesDao(this as AppDatabase);
+  late final QuotesDao quotesDao = QuotesDao(this as AppDatabase);
+  late final BooksDao booksDao = BooksDao(this as AppDatabase);
+  late final ReadingMemosDao readingMemosDao = ReadingMemosDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -11782,9 +12513,15 @@ typedef $$BooksTableCreateCompanionBuilder =
     BooksCompanion Function({
       Value<int> id,
       required String title,
-      Value<String?> author,
+      required String author,
+      Value<String?> genre,
+      Value<String?> publisher,
+      Value<String?> publishedDate,
       Value<String?> isbn,
-      Value<String> overview,
+      Value<String?> synopsis,
+      Value<String?> rating,
+      Value<String?> relatedUrl,
+      Value<String?> reviewSummary,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
@@ -11792,9 +12529,15 @@ typedef $$BooksTableUpdateCompanionBuilder =
     BooksCompanion Function({
       Value<int> id,
       Value<String> title,
-      Value<String?> author,
+      Value<String> author,
+      Value<String?> genre,
+      Value<String?> publisher,
+      Value<String?> publishedDate,
       Value<String?> isbn,
-      Value<String> overview,
+      Value<String?> synopsis,
+      Value<String?> rating,
+      Value<String?> relatedUrl,
+      Value<String?> reviewSummary,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
@@ -11822,13 +12565,43 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get genre => $composableBuilder(
+    column: $table.genre,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get publisher => $composableBuilder(
+    column: $table.publisher,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get publishedDate => $composableBuilder(
+    column: $table.publishedDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get isbn => $composableBuilder(
     column: $table.isbn,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get overview => $composableBuilder(
-    column: $table.overview,
+  ColumnFilters<String> get synopsis => $composableBuilder(
+    column: $table.synopsis,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rating => $composableBuilder(
+    column: $table.rating,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get relatedUrl => $composableBuilder(
+    column: $table.relatedUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reviewSummary => $composableBuilder(
+    column: $table.reviewSummary,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11867,13 +12640,43 @@ class $$BooksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get genre => $composableBuilder(
+    column: $table.genre,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get publisher => $composableBuilder(
+    column: $table.publisher,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get publishedDate => $composableBuilder(
+    column: $table.publishedDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get isbn => $composableBuilder(
     column: $table.isbn,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get overview => $composableBuilder(
-    column: $table.overview,
+  ColumnOrderings<String> get synopsis => $composableBuilder(
+    column: $table.synopsis,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rating => $composableBuilder(
+    column: $table.rating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get relatedUrl => $composableBuilder(
+    column: $table.relatedUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reviewSummary => $composableBuilder(
+    column: $table.reviewSummary,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -11906,11 +12709,35 @@ class $$BooksTableAnnotationComposer
   GeneratedColumn<String> get author =>
       $composableBuilder(column: $table.author, builder: (column) => column);
 
+  GeneratedColumn<String> get genre =>
+      $composableBuilder(column: $table.genre, builder: (column) => column);
+
+  GeneratedColumn<String> get publisher =>
+      $composableBuilder(column: $table.publisher, builder: (column) => column);
+
+  GeneratedColumn<String> get publishedDate => $composableBuilder(
+    column: $table.publishedDate,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get isbn =>
       $composableBuilder(column: $table.isbn, builder: (column) => column);
 
-  GeneratedColumn<String> get overview =>
-      $composableBuilder(column: $table.overview, builder: (column) => column);
+  GeneratedColumn<String> get synopsis =>
+      $composableBuilder(column: $table.synopsis, builder: (column) => column);
+
+  GeneratedColumn<String> get rating =>
+      $composableBuilder(column: $table.rating, builder: (column) => column);
+
+  GeneratedColumn<String> get relatedUrl => $composableBuilder(
+    column: $table.relatedUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reviewSummary => $composableBuilder(
+    column: $table.reviewSummary,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -11949,17 +12776,29 @@ class $$BooksTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> title = const Value.absent(),
-                Value<String?> author = const Value.absent(),
+                Value<String> author = const Value.absent(),
+                Value<String?> genre = const Value.absent(),
+                Value<String?> publisher = const Value.absent(),
+                Value<String?> publishedDate = const Value.absent(),
                 Value<String?> isbn = const Value.absent(),
-                Value<String> overview = const Value.absent(),
+                Value<String?> synopsis = const Value.absent(),
+                Value<String?> rating = const Value.absent(),
+                Value<String?> relatedUrl = const Value.absent(),
+                Value<String?> reviewSummary = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => BooksCompanion(
                 id: id,
                 title: title,
                 author: author,
+                genre: genre,
+                publisher: publisher,
+                publishedDate: publishedDate,
                 isbn: isbn,
-                overview: overview,
+                synopsis: synopsis,
+                rating: rating,
+                relatedUrl: relatedUrl,
+                reviewSummary: reviewSummary,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),
@@ -11967,17 +12806,29 @@ class $$BooksTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String title,
-                Value<String?> author = const Value.absent(),
+                required String author,
+                Value<String?> genre = const Value.absent(),
+                Value<String?> publisher = const Value.absent(),
+                Value<String?> publishedDate = const Value.absent(),
                 Value<String?> isbn = const Value.absent(),
-                Value<String> overview = const Value.absent(),
+                Value<String?> synopsis = const Value.absent(),
+                Value<String?> rating = const Value.absent(),
+                Value<String?> relatedUrl = const Value.absent(),
+                Value<String?> reviewSummary = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => BooksCompanion.insert(
                 id: id,
                 title: title,
                 author: author,
+                genre: genre,
+                publisher: publisher,
+                publishedDate: publishedDate,
                 isbn: isbn,
-                overview: overview,
+                synopsis: synopsis,
+                rating: rating,
+                relatedUrl: relatedUrl,
+                reviewSummary: reviewSummary,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),
@@ -12008,14 +12859,20 @@ typedef $$ReadingMemosTableCreateCompanionBuilder =
       Value<int> id,
       required int bookId,
       required String content,
+      Value<String?> sectionTitle,
+      Value<String?> pageNumber,
       Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
     });
 typedef $$ReadingMemosTableUpdateCompanionBuilder =
     ReadingMemosCompanion Function({
       Value<int> id,
       Value<int> bookId,
       Value<String> content,
+      Value<String?> sectionTitle,
+      Value<String?> pageNumber,
       Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
     });
 
 class $$ReadingMemosTableFilterComposer
@@ -12042,8 +12899,23 @@ class $$ReadingMemosTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get sectionTitle => $composableBuilder(
+    column: $table.sectionTitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pageNumber => $composableBuilder(
+    column: $table.pageNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -12072,8 +12944,23 @@ class $$ReadingMemosTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get sectionTitle => $composableBuilder(
+    column: $table.sectionTitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pageNumber => $composableBuilder(
+    column: $table.pageNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -12096,8 +12983,21 @@ class $$ReadingMemosTableAnnotationComposer
   GeneratedColumn<String> get content =>
       $composableBuilder(column: $table.content, builder: (column) => column);
 
+  GeneratedColumn<String> get sectionTitle => $composableBuilder(
+    column: $table.sectionTitle,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pageNumber => $composableBuilder(
+    column: $table.pageNumber,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 }
 
 class $$ReadingMemosTableTableManager
@@ -12134,24 +13034,36 @@ class $$ReadingMemosTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int> bookId = const Value.absent(),
                 Value<String> content = const Value.absent(),
+                Value<String?> sectionTitle = const Value.absent(),
+                Value<String?> pageNumber = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
               }) => ReadingMemosCompanion(
                 id: id,
                 bookId: bookId,
                 content: content,
+                sectionTitle: sectionTitle,
+                pageNumber: pageNumber,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required int bookId,
                 required String content,
+                Value<String?> sectionTitle = const Value.absent(),
+                Value<String?> pageNumber = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
               }) => ReadingMemosCompanion.insert(
                 id: id,
                 bookId: bookId,
                 content: content,
+                sectionTitle: sectionTitle,
+                pageNumber: pageNumber,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -14614,7 +15526,11 @@ typedef $$QuotesTableCreateCompanionBuilder =
       required int entryId,
       required String quoteText,
       Value<String?> pageOrLoc,
+      Value<String?> sectionTitle,
       Value<String?> note,
+      Value<String?> sourceImagePath,
+      Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
     });
 typedef $$QuotesTableUpdateCompanionBuilder =
     QuotesCompanion Function({
@@ -14622,7 +15538,11 @@ typedef $$QuotesTableUpdateCompanionBuilder =
       Value<int> entryId,
       Value<String> quoteText,
       Value<String?> pageOrLoc,
+      Value<String?> sectionTitle,
       Value<String?> note,
+      Value<String?> sourceImagePath,
+      Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
     });
 
 class $$QuotesTableFilterComposer
@@ -14654,8 +15574,28 @@ class $$QuotesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get sectionTitle => $composableBuilder(
+    column: $table.sectionTitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get note => $composableBuilder(
     column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceImagePath => $composableBuilder(
+    column: $table.sourceImagePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -14689,8 +15629,28 @@ class $$QuotesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get sectionTitle => $composableBuilder(
+    column: $table.sectionTitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get note => $composableBuilder(
     column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceImagePath => $composableBuilder(
+    column: $table.sourceImagePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -14716,8 +15676,24 @@ class $$QuotesTableAnnotationComposer
   GeneratedColumn<String> get pageOrLoc =>
       $composableBuilder(column: $table.pageOrLoc, builder: (column) => column);
 
+  GeneratedColumn<String> get sectionTitle => $composableBuilder(
+    column: $table.sectionTitle,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get note =>
       $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceImagePath => $composableBuilder(
+    column: $table.sourceImagePath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 }
 
 class $$QuotesTableTableManager
@@ -14752,13 +15728,21 @@ class $$QuotesTableTableManager
                 Value<int> entryId = const Value.absent(),
                 Value<String> quoteText = const Value.absent(),
                 Value<String?> pageOrLoc = const Value.absent(),
+                Value<String?> sectionTitle = const Value.absent(),
                 Value<String?> note = const Value.absent(),
+                Value<String?> sourceImagePath = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
               }) => QuotesCompanion(
                 id: id,
                 entryId: entryId,
                 quoteText: quoteText,
                 pageOrLoc: pageOrLoc,
+                sectionTitle: sectionTitle,
                 note: note,
+                sourceImagePath: sourceImagePath,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
               ),
           createCompanionCallback:
               ({
@@ -14766,13 +15750,21 @@ class $$QuotesTableTableManager
                 required int entryId,
                 required String quoteText,
                 Value<String?> pageOrLoc = const Value.absent(),
+                Value<String?> sectionTitle = const Value.absent(),
                 Value<String?> note = const Value.absent(),
+                Value<String?> sourceImagePath = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
               }) => QuotesCompanion.insert(
                 id: id,
                 entryId: entryId,
                 quoteText: quoteText,
                 pageOrLoc: pageOrLoc,
+                sectionTitle: sectionTitle,
                 note: note,
+                sourceImagePath: sourceImagePath,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

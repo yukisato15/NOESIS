@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:flutter_tesseract_ocr/flutter_tesseract_ocr.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
@@ -27,7 +27,7 @@ class OcrOptions {
   });
 }
 
-/// Google ML Kit OCR ヘルパー (VisionKit使用)
+/// Tesseract OCR ヘルパー
 class ImageOcrHelper {
   static final ImagePicker _picker = ImagePicker();
 
@@ -96,6 +96,7 @@ class ImageOcrHelper {
     try {
       debugPrint('[OCR] Preprocessing image...');
 
+      // 画像を読み込み
       final bytes = await File(imagePath).readAsBytes();
       img.Image? image = img.decodeImage(bytes);
 
@@ -107,10 +108,14 @@ class ImageOcrHelper {
       // グレースケール化
       image = img.grayscale(image);
 
-      // コントラスト強調
+      // コントラスト強調（1.5倍）
       image = img.adjustColor(image, contrast: 1.5);
 
-      // Otsu二値化
+      // シャープネス適用
+      image = img.adjustColor(image, saturation: 0);
+
+      // Otsu二値化（Tesseractに最適）
+      // しきい値を自動計算
       final histogram = List<int>.filled(256, 0);
       for (int y = 0; y < image.height; y++) {
         for (int x = 0; x < image.width; x++) {
@@ -164,15 +169,14 @@ class ImageOcrHelper {
 
       // 一時ファイルとして保存
       final tempDir = await getTemporaryDirectory();
-      final processedPath =
-          '${tempDir.path}/ocr_processed_${DateTime.now().millisecondsSinceEpoch}.png';
+      final processedPath = '${tempDir.path}/ocr_processed_${DateTime.now().millisecondsSinceEpoch}.png';
       await File(processedPath).writeAsBytes(img.encodePng(image));
 
       debugPrint('[OCR] Preprocessed image saved: $processedPath');
       return processedPath;
     } catch (e) {
       debugPrint('[OCR] Error in preprocessing: $e');
-      return imagePath;
+      return imagePath; // 前処理失敗時は元の画像を使用
     }
   }
 
@@ -207,7 +211,7 @@ class ImageOcrHelper {
     }
   }
 
-  /// 画像からテキストを認識（OCR）- ML Kit版
+  /// 画像からテキストを認識（OCR）
   static Future<String?> recognizeText({
     required String imagePath,
     OcrOptions? options,
@@ -219,7 +223,7 @@ class ImageOcrHelper {
             direction: WritingDirection.horizontal,
           );
 
-      debugPrint('[OCR] ========== ML KIT OCR START ==========');
+      debugPrint('[OCR] ========== OCR START ==========');
       debugPrint('[OCR] Image path: $imagePath');
       debugPrint('[OCR] Language: ${settings.language}');
       debugPrint('[OCR] Direction: ${settings.direction}');
@@ -231,80 +235,93 @@ class ImageOcrHelper {
         return null;
       }
       final fileSize = await file.length();
-      debugPrint('[OCR] File size: $fileSize bytes');
+      debugPrint('[OCR] File size: ${fileSize} bytes');
 
-      // 画像前処理（英語のみ適用）
-      // ML Kitは日本語に対して前処理なしの方が精度が高い
-      final String imageToUse;
-      if (settings.language == OcrLanguage.english) {
-        imageToUse = await _preprocessImage(imagePath);
-        debugPrint('[OCR] Using preprocessed image for English');
-      } else {
-        imageToUse = imagePath;
-        debugPrint('[OCR] Using original image for Japanese (no preprocessing)');
-      }
+      // 画像前処理を実行
+      final processedPath = await _preprocessImage(imagePath);
+      debugPrint('[OCR] Using processed image: $processedPath');
 
-      // ML Kit Text Recognizerの作成
-      final TextRecognizer textRecognizer;
-      if (settings.language == OcrLanguage.japanese) {
-        // 日本語用
-        textRecognizer = TextRecognizer(script: TextRecognitionScript.japanese);
-        debugPrint('[OCR] Using Japanese script recognizer');
-      } else {
-        // 英語用（Latin）
-        textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-        debugPrint('[OCR] Using Latin script recognizer');
-      }
+      // Tesseractの言語コードを決定
+      final String tessLang = _getTesseractLanguage(settings);
+      debugPrint('[OCR] Tesseract language: $tessLang');
 
-      // InputImageの作成
-      final inputImage = InputImage.fromFilePath(imageToUse);
-      debugPrint('[OCR] InputImage created from: $imageToUse');
+      // PSMモードを決定
+      final String psmMode = _getPsmMode(settings);
+      debugPrint('[OCR] PSM mode: $psmMode');
 
-      // テキスト認識実行
-      debugPrint('[OCR] Calling ML Kit processImage...');
-      final RecognizedText recognizedText =
-          await textRecognizer.processImage(inputImage);
+      // Tesseract OCR実行
+      debugPrint('[OCR] Calling FlutterTesseractOcr.extractText...');
 
-      // リソースのクリーンアップ
-      textRecognizer.close();
-      if (imageToUse != imagePath) {
-        try {
-          await File(imageToUse).delete();
-          debugPrint('[OCR] Cleaned up temporary file');
-        } catch (e) {
-          debugPrint('[OCR] Failed to delete temp file: $e');
+      try {
+        final text = await FlutterTesseractOcr.extractText(
+          processedPath, // 前処理済み画像を使用
+          language: tessLang,
+          args: {
+            'psm': psmMode,
+            'oem': '3',
+          },
+        );
+
+        // 一時ファイルをクリーンアップ
+        if (processedPath != imagePath) {
+          try {
+            await File(processedPath).delete();
+            debugPrint('[OCR] Cleaned up temporary file');
+          } catch (e) {
+            debugPrint('[OCR] Failed to delete temp file: $e');
+          }
         }
+
+        debugPrint('[OCR] Raw result length: ${text.length}');
+        debugPrint('[OCR] Raw result: "$text"');
+
+        // 後処理: 日本語の場合は不要な空白を削除
+        String processed = text.trim();
+        if (settings.language == OcrLanguage.japanese) {
+          // 日本語文字間の不要な空白を削除
+          processed = processed.replaceAll(RegExp(r'(?<=[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF])\s+(?=[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF])'), '');
+        }
+
+        debugPrint('[OCR] Processed result length: ${processed.length}');
+        debugPrint('[OCR] Processed result: "$processed"');
+        debugPrint('[OCR] ========== OCR END ==========');
+
+        return processed.isEmpty ? null : processed;
+      } catch (e, stackTrace) {
+        debugPrint('[OCR] ERROR in FlutterTesseractOcr.extractText: $e');
+        debugPrint('[OCR] Stack trace: $stackTrace');
+        return null;
       }
-
-      debugPrint('[OCR] Raw result: "${recognizedText.text}"');
-      debugPrint('[OCR] Number of blocks: ${recognizedText.blocks.length}');
-
-      // ブロック情報をログ出力
-      for (var i = 0; i < recognizedText.blocks.length; i++) {
-        final block = recognizedText.blocks[i];
-        debugPrint(
-            '[OCR] Block $i: "${block.text}" (${block.lines.length} lines)');
-      }
-
-      String result = recognizedText.text.trim();
-
-      // 後処理: 日本語の場合は不要な空白を削除
-      if (settings.language == OcrLanguage.japanese) {
-        result = result.replaceAll(
-            RegExp(
-                r'(?<=[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF])\s+(?=[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF])'),
-            '');
-        debugPrint('[OCR] After Japanese post-processing: "$result"');
-      }
-
-      debugPrint('[OCR] Final result length: ${result.length}');
-      debugPrint('[OCR] ========== ML KIT OCR END ==========');
-
-      return result.isEmpty ? null : result;
     } catch (e, stackTrace) {
       debugPrint('[OCR] ERROR in recognizeText: $e');
       debugPrint('[OCR] Stack trace: $stackTrace');
       return null;
+    }
+  }
+
+  /// Tesseractの言語コードを取得
+  static String _getTesseractLanguage(OcrOptions settings) {
+    if (settings.language == OcrLanguage.japanese) {
+      if (settings.direction == WritingDirection.vertical) {
+        return 'jpn_vert';
+      } else {
+        return 'jpn';
+      }
+    } else {
+      return 'eng';
+    }
+  }
+
+  /// Page Segmentation Mode を取得
+  static String _getPsmMode(OcrOptions settings) {
+    // PSM 3: 自動ページ分割（デフォルト）
+    // PSM 4: 単一列の可変サイズテキスト
+    // PSM 6: 単一テキストブロック
+    // PSM 11: 疎なテキスト（写真など）
+    if (settings.direction == WritingDirection.vertical) {
+      return '4'; // 単一列（縦書き向け）
+    } else {
+      return '3'; // 自動ページ分割
     }
   }
 
