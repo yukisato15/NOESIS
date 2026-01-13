@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:drift/drift.dart' hide Column;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import 'reading_memo_add_screen.dart';
+import 'reading_memo_detail_screen.dart';
 
 /// 本の詳細画面
 /// 書籍のメタデータと、その書籍に紐づく読書メモの一覧を表示
@@ -194,8 +196,8 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // タイトル・著者
-                Text(
-                  _book!.title,
+                SelectableContextText(
+                  text: _book!.title,
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -205,10 +207,12 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
                   children: [
                     const Icon(Icons.person, size: 16),
                     const SizedBox(width: 4),
-                    Text(
-                      _book!.author,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.colorScheme.secondary,
+                    Expanded(
+                      child: SelectableContextText(
+                        text: _book!.author,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.secondary,
+                        ),
                       ),
                     ),
                   ],
@@ -246,7 +250,9 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
-                      Text(_book!.synopsis!),
+                      SelectableContextText(
+                        text: _book!.synopsis!,
+                      ),
                       const SizedBox(height: 8),
                     ],
                     if (_book!.rating != null && _book!.rating!.isNotEmpty) ...[
@@ -254,7 +260,7 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
                     ],
                     if (_book!.relatedUrl != null &&
                         _book!.relatedUrl!.isNotEmpty) ...[
-                      _buildInfoRow('関連URL', _book!.relatedUrl!),
+                      _buildInfoRow('関連URL', _book!.relatedUrl!, isUrl: true),
                     ],
                     if (_book!.reviewSummary != null &&
                         _book!.reviewSummary!.isNotEmpty) ...[
@@ -264,7 +270,9 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
-                      Text(_book!.reviewSummary!),
+                      SelectableContextText(
+                        text: _book!.reviewSummary!,
+                      ),
                       const SizedBox(height: 8),
                     ],
                   ],
@@ -324,11 +332,13 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         child: InkWell(
-                          onTap: () {
-                            // TODO: メモ詳細画面へ遷移（AI機能含む）
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('メモ詳細画面は次のステップで実装します'),
+                          onTap: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ReadingMemoDetailScreen(
+                                  memoId: memo.id,
+                                  bookTitle: _book!.title,
+                                ),
                               ),
                             );
                           },
@@ -375,8 +385,8 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 // メモ本文
-                                Text(
-                                  memo.content,
+                                SelectableContextText(
+                                  text: memo.content ?? memo.thoughtText,
                                   style: theme.textTheme.bodyMedium,
                                   maxLines: 5,
                                   overflow: TextOverflow.ellipsis,
@@ -422,7 +432,7 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(String label, String value, {bool isUrl = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -435,9 +445,37 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-          Expanded(child: Text(value)),
+          Expanded(
+            child: isUrl
+                ? GestureDetector(
+                    onTap: () => _launchUrl(value),
+                    child: Text(
+                      value,
+                      style: TextStyle(
+                        color: Colors.blue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  )
+                : SelectableContextText(
+                    text: value,
+                  ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _launchUrl(String urlString) async {
+    final uri = Uri.parse(urlString);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('URLを開けませんでした: $urlString')),
+        );
+      }
+    }
   }
 }

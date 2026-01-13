@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import '../../data/local/tables/entries_table.dart';
 import '../shared/surface_field.dart';
@@ -389,7 +390,7 @@ class _DictionaryDetailScreenState extends State<DictionaryDetailScreen> {
     if (text == null || text.isEmpty) {
       return const Text('—');
     }
-    return Text(text);
+    return SelectableContextText(text: text);
   }
 
   Widget _buildListValue(dynamic items, {bool linkify = false}) {
@@ -403,15 +404,15 @@ class _DictionaryDetailScreenState extends State<DictionaryDetailScreen> {
         if (!linkify) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 6),
-            child: Text('• $text'),
+            child: SelectableContextText(text: '• $text'),
           );
         }
         return Padding(
           padding: const EdgeInsets.only(bottom: 6),
           child: InkWell(
             onTap: () => _openUrl(text),
-            child: Text(
-              '• $text',
+            child: SelectableContextText(
+              text: '• $text',
               style: const TextStyle(
                 decoration: TextDecoration.underline,
               ),

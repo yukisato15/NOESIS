@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import '../../data/local/tables/dictionary_fields_table.dart';
 import 'dictionary_entry_edit_screen.dart';
-import '../shared/text_action_sheet.dart';
 
 class DictionaryEntryDetailScreen extends StatefulWidget {
   final int dictionaryId;
@@ -143,12 +143,9 @@ class _DictionaryEntryDetailScreenState
     }
     if (field.fieldType == DictionaryFieldType.text ||
         field.fieldType == DictionaryFieldType.multiline) {
-      return GestureDetector(
-        onLongPress: () => showTextActionSheet(context, value),
-        child: Text(
-          value,
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
+      return SelectableContextText(
+        text: value,
+        style: Theme.of(context).textTheme.bodyLarge,
       );
     }
     final linkify = field.fieldType == DictionaryFieldType.urlList;
@@ -159,12 +156,9 @@ class _DictionaryEntryDetailScreenState
         if (!linkify) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 6),
-            child: GestureDetector(
-              onLongPress: () => showTextActionSheet(context, text),
-              child: Text(
-                '• $text',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
+            child: SelectableContextText(
+              text: '• $text',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           );
         }
@@ -172,9 +166,8 @@ class _DictionaryEntryDetailScreenState
           padding: const EdgeInsets.only(bottom: 6),
           child: InkWell(
             onTap: () => _openUrl(text),
-            onLongPress: () => showTextActionSheet(context, text),
-            child: Text(
-              '• $text',
+            child: SelectableContextText(
+              text: '• $text',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     decoration: TextDecoration.underline,
                   ),
@@ -323,25 +316,18 @@ class _DictionaryEntryDetailScreenState
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
         children: [
-          GestureDetector(
-            onLongPress: () => showTextActionSheet(context, _entry!.headword),
-            child: Text(
-              _entry!.headword,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+          SelectableContextText(
+            text: _entry!.headword,
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 6),
           if (_entry!.category != null && _entry!.category!.isNotEmpty)
-            GestureDetector(
-              onLongPress: () =>
-                  showTextActionSheet(context, _entry!.category!),
-              child: Text(
-                _entry!.category!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.secondary,
-                ),
+            SelectableContextText(
+              text: _entry!.category!,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.secondary,
               ),
             ),
           if (_tags.isNotEmpty) ...[
@@ -363,13 +349,10 @@ class _DictionaryEntryDetailScreenState
                           color: theme.colorScheme.primary.withOpacity(0.08),
                         ),
                       ),
-                      child: GestureDetector(
-                        onLongPress: () => showTextActionSheet(context, tag),
-                        child: Text(
-                          tag,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.primary.withOpacity(0.8),
-                          ),
+                      child: SelectableContextText(
+                        text: tag,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary.withOpacity(0.8),
                         ),
                       ),
                     ),

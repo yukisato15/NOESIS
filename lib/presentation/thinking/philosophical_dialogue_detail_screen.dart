@@ -14,6 +14,7 @@ import '../../core/ai/search_client.dart';
 import '../../core/ai/thinking_styles/thinking_style.dart';
 import 'widgets/thinking_style_selector.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import '../../data/local/tables/concept_dictionaries_table.dart';
 import '../../data/local/tables/philosophical_messages_table.dart';
@@ -903,70 +904,85 @@ $instruction
     final hasImage = imagePath != null && File(imagePath).existsSync();
     final content = message.content.trim();
 
-    return GestureDetector(
-      onLongPress: () => _showMessageActions(message),
-      child: Align(
-        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 320),
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: bubbleColor,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: borderColor.withOpacity(0.4)),
-          ),
-          child: Column(
-            crossAxisAlignment: isUser
-                ? CrossAxisAlignment.end
-                : CrossAxisAlignment.start,
-            children: [
-              Text(
-                headerText,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: headerColor,
-                ),
-              ),
-              if (message.inputType == DialogueInputType.image)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: hasImage
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            File(imagePath!),
-                            height: 160,
-                            width: 220,
-                            fit: BoxFit.cover,
-                          ),
-                        )
-                      : Container(
-                          height: 120,
-                          width: 220,
-                          decoration: BoxDecoration(
-                            color: AppPalette.soften(AppPalette.thinking, 0.9),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: borderColor.withOpacity(0.4),
-                            ),
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.photo, color: Colors.grey),
-                          ),
-                        ),
-                ),
-              if (content.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 320),
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: bubbleColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: borderColor.withOpacity(0.4)),
+        ),
+        child: Column(
+          crossAxisAlignment:
+              isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment:
+                  isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+              children: [
+                Expanded(
                   child: Text(
-                    content,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: contentColor,
+                    headerText,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: headerColor,
                     ),
                   ),
                 ),
-            ],
-          ),
+                IconButton(
+                  onPressed: () => _showMessageActions(message),
+                  icon: Icon(
+                    Icons.more_horiz,
+                    size: 18,
+                    color: headerColor,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'メニュー',
+                ),
+              ],
+            ),
+            if (message.inputType == DialogueInputType.image)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: hasImage
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          File(imagePath!),
+                          height: 160,
+                          width: 220,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : Container(
+                        height: 120,
+                        width: 220,
+                        decoration: BoxDecoration(
+                          color: AppPalette.soften(AppPalette.thinking, 0.9),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: borderColor.withOpacity(0.4),
+                          ),
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.photo, color: Colors.grey),
+                        ),
+                      ),
+              ),
+            if (content.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SelectableContextText(
+                  text: content,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: contentColor,
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

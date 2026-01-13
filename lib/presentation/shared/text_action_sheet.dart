@@ -100,67 +100,70 @@ Future<void> handleDictionaryEntryAction(
   BuildContext context,
   String value,
 ) async {
+  // 新しいデータベースインスタンスを作成（一時的）
   final db = AppDatabase();
-  final dictionaries = await db.dictionariesDao.getAllDictionaries();
-  if (!context.mounted) {
-    db.close();
-    return;
-  }
 
-  final target = await showModalBottomSheet<_DictionaryTarget>(
-    context: context,
-    builder: (sheetContext) {
-      return SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            const ListTile(title: Text('登録先を選択')),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.lightbulb_outline),
-              title: const Text('概念辞書'),
-              onTap: () => Navigator.of(sheetContext)
-                  .pop(const _DictionaryTarget.concept()),
-            ),
-            ...dictionaries.map(
-              (dict) => ListTile(
-                leading: const Icon(Icons.book_outlined),
-                title: Text(dict.name),
-                onTap: () => Navigator.of(sheetContext).pop(
-                  _DictionaryTarget.dictionary(dict.id, dict.name),
+  try {
+    final dictionaries = await db.dictionariesDao.getAllDictionaries();
+    if (!context.mounted) {
+      return;
+    }
+
+    final target = await showModalBottomSheet<_DictionaryTarget>(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const ListTile(title: Text('登録先を選択')),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.lightbulb_outline),
+                title: const Text('概念辞書'),
+                onTap: () => Navigator.of(sheetContext)
+                    .pop(const _DictionaryTarget.concept()),
+              ),
+              ...dictionaries.map(
+                (dict) => ListTile(
+                  leading: const Icon(Icons.book_outlined),
+                  title: Text(dict.name),
+                  onTap: () => Navigator.of(sheetContext).pop(
+                    _DictionaryTarget.dictionary(dict.id, dict.name),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+        );
+      },
+    );
+
+    if (target == null || !context.mounted) {
+      return;
+    }
+
+    if (target.isConcept) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ConceptDictionaryAddScreen(initialTitle: value),
         ),
       );
-    },
-  );
+      return;
+    }
 
-  db.close();
-
-  if (target == null || !context.mounted) {
-    return;
-  }
-
-  if (target.isConcept) {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ConceptDictionaryAddScreen(initialTitle: value),
-      ),
-    );
-    return;
-  }
-
-  if (target.dictionaryId != null) {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DictionaryEntryEditScreen(
-          dictionaryId: target.dictionaryId!,
-          initialHeadword: value,
+    if (target.dictionaryId != null) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DictionaryEntryEditScreen(
+            dictionaryId: target.dictionaryId!,
+            initialHeadword: value,
+          ),
         ),
-      ),
-    );
+      );
+    }
+  } finally {
+    db.close();
   }
 }
 
@@ -168,23 +171,28 @@ Future<void> handleStartDialogueAction(
   BuildContext context,
   String value,
 ) async {
+  // 新しいデータベースインスタンスを作成（一時的）
   final db = AppDatabase();
-  final dialogueId = await db.philosophicalDialoguesDao.createDialogue(
-    PhilosophicalDialoguesCompanion.insert(title: '無題の対話'),
-  );
-  db.close();
-  if (!context.mounted) {
-    return;
-  }
-  await Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (_) => PhilosophicalDialogueDetailScreen(
-        dialogueId: dialogueId,
-        initialMessage: value,
-        isDraft: true,
+
+  try {
+    final dialogueId = await db.philosophicalDialoguesDao.createDialogue(
+      PhilosophicalDialoguesCompanion.insert(title: '無題の対話'),
+    );
+    if (!context.mounted) {
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PhilosophicalDialogueDetailScreen(
+          dialogueId: dialogueId,
+          initialMessage: value,
+          isDraft: true,
+        ),
       ),
-    ),
-  );
+    );
+  } finally {
+    db.close();
+  }
 }
 
 Future<void> handleDailyMemoAction(

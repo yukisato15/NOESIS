@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import '../../data/local/dao/dictionaries_dao.dart';
 import 'dictionary_entry_edit_screen.dart';
@@ -308,7 +309,11 @@ class _DictionaryEntriesScreenState
                             onChanged: (_) => _toggleSelection(entry.id),
                           )
                         : null,
-                    title: Text(entry.headword),
+                    title: SelectableContextText(
+                      text: entry.headword,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     trailing: PopupMenuButton<String>(
                       onSelected: (value) {
                         if (value == 'delete') {

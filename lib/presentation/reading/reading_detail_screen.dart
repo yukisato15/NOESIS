@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import '../../data/local/tables/entries_table.dart';
 import 'package:intl/intl.dart';
@@ -372,16 +373,19 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _entry!.reading ?? '書籍名未設定',
+                      SelectableContextText(
+                        text: _entry!.reading ?? '書籍名未設定',
+                        maxLines: 2,
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: AppPalette.reading,
                         ),
                       ),
                       if (_entry!.genre != null) ...[
                         const SizedBox(height: 4),
-                        Text(
-                          _entry!.genre!,
+                        SelectableContextText(
+                          text: _entry!.genre!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.secondary,
                           ),
@@ -394,15 +398,15 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          Text(
-            _entry!.title,
+          SelectableContextText(
+            text: _entry!.title,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
           ),
           const SizedBox(height: 16),
-          Text(
-            _entry!.body,
+          SelectableContextText(
+            text: _entry!.body,
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: 32),
@@ -563,8 +567,10 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (quote.sectionTitle != null && quote.sectionTitle!.isNotEmpty) ...[
-                Text(
-                  quote.sectionTitle!,
+                SelectableContextText(
+                  text: quote.sectionTitle!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: AppPalette.reading,
                     fontWeight: FontWeight.bold,
@@ -584,11 +590,11 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
                     ),
                   ),
                 ),
-                child: Text(
-                  quote.quoteText,
-                  style: theme.textTheme.bodyMedium,
+                child: SelectableContextText(
+                  text: quote.quoteText,
                   maxLines: 5,
                   overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium,
                 ),
               ),
               const SizedBox(height: 8),
@@ -597,8 +603,10 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
                   if (quote.pageOrLoc != null && quote.pageOrLoc!.isNotEmpty) ...[
                     Icon(Icons.bookmark_border, size: 14, color: theme.colorScheme.outline),
                     const SizedBox(width: 4),
-                    Text(
-                      quote.pageOrLoc!,
+                    SelectableContextText(
+                      text: quote.pageOrLoc!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.outline,
                       ),

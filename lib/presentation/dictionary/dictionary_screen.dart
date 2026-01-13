@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import 'dictionary_create_screen.dart';
 import 'dictionary_archive_settings_screen.dart';
@@ -668,12 +669,18 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
                         vertical: 8,
                       ),
                       child: ListTile(
-                        title: Text(entry.headword),
+                        title: SelectableContextText(
+                          text: entry.headword,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              dict.name,
+                            SelectableContextText(
+                              text: dict.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: AppPalette.dictionaryGeneral
                                     .withOpacity(0.7),
@@ -681,8 +688,10 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
                             ),
                             if (entry.category != null &&
                                 entry.category!.isNotEmpty)
-                              Text(
-                                'カテゴリ: ${entry.category}',
+                              SelectableContextText(
+                                text: 'カテゴリ: ${entry.category}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodySmall,
                               ),
                           ],

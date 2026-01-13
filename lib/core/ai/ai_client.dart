@@ -46,10 +46,15 @@ class AIClient {
 
       // Web検索モードの場合、検索結果を追加
       if (mode == AIMode.withSearch) {
+        final searchQuery = _extractSearchQuery(prompt);
+        print('[AIClient] 検索クエリ: $searchQuery');
+
         final searchResults = await SearchClient.instance.search(
-          _extractSearchQuery(prompt),
+          searchQuery,
           maxResults: 5,
         );
+        print('[AIClient] 検索結果件数: ${searchResults.length}件');
+
         final searchContext = SearchClient.instance.formatSearchResults(searchResults);
         enhancedPrompt = '$prompt\n\n$searchContext';
       }
@@ -85,13 +90,30 @@ class AIClient {
 
   /// プロンプトから検索クエリを抽出（簡易実装）
   String _extractSearchQuery(String prompt) {
-    // 概念名や見出し語を抽出する簡易ロジック
     final lines = prompt.split('\n');
+    String? title;
+    String? author;
+
+    // 書籍検索の場合：「書名:」と「著者:」を抽出
     for (final line in lines) {
-      if (line.contains('概念名:') || line.contains('見出し語:')) {
+      if (line.contains('書名:')) {
+        title = line.split(':').last.trim();
+      } else if (line.contains('著者:')) {
+        author = line.split(':').last.trim();
+      } else if (line.contains('概念名:') || line.contains('見出し語:')) {
         return line.split(':').last.trim();
       }
     }
+
+    // 書名と著者が両方ある場合は組み合わせる
+    if (title != null && author != null) {
+      return '$title $author';
+    } else if (title != null) {
+      return title;
+    } else if (author != null) {
+      return author;
+    }
+
     // 見つからない場合は最初の50文字を使用
     return prompt.substring(0, prompt.length > 50 ? 50 : prompt.length);
   }

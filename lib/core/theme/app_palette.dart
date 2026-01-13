@@ -4,6 +4,7 @@ class AppPalette {
   static const thinking = Color(0xFF6B5A73);
   static const reading = Color(0xFF5E6F66);
   static const daily = Color(0xFF8C6A3A);
+  static const code = Color(0xFF4A6B8A); // ITコード理解アーカイブ
 
   static const dictionaryGeneral = Color(0xFF5C6F82);
   static const dictionaryTech = Color(0xFF5F6F5C);

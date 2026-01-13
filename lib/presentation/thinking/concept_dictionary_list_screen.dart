@@ -3,6 +3,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import '../../data/local/tables/concept_dictionaries_table.dart';
 import 'concept_dictionary_add_screen.dart';
@@ -126,9 +127,16 @@ class _ConceptDictionaryListScreenState
                     ),
                     child: Icon(Icons.menu_book, color: AppPalette.thinking),
                   ),
-                  title: Text(item.title, style: theme.textTheme.titleMedium),
-                  subtitle: Text(
-                    _originLabel(item.origin),
+                  title: SelectableContextText(
+                    text: item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  subtitle: SelectableContextText(
+                    text: _originLabel(item.origin),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.secondary,
                     ),

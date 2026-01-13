@@ -9,27 +9,31 @@ import '../../core/theme/app_palette.dart';
 import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import '../../data/local/database_provider.dart';
-import '../../data/local/tables/daily_memo_entries_table.dart';
+import '../../data/local/tables/reading_memo_entries_table.dart';
 
-/// 日常メモ詳細画面
+/// 読書メモ詳細画面
 /// メモ内容の表示と、追記エントリーの時系列表示、AI機能（要約・リライト・質問応答）を提供
-class DailyMemoDetailScreen extends ConsumerStatefulWidget {
+class ReadingMemoDetailScreen extends ConsumerStatefulWidget {
   final int memoId;
+  final String bookTitle;
 
-  const DailyMemoDetailScreen({super.key, required this.memoId});
+  const ReadingMemoDetailScreen({
+    super.key,
+    required this.memoId,
+    required this.bookTitle,
+  });
 
   @override
-  ConsumerState<DailyMemoDetailScreen> createState() =>
-      _DailyMemoDetailScreenState();
+  ConsumerState<ReadingMemoDetailScreen> createState() =>
+      _ReadingMemoDetailScreenState();
 }
 
-class _DailyMemoDetailScreenState
-    extends ConsumerState<DailyMemoDetailScreen> {
-  DailyMemo? _memo;
-  List<DailyMemoEntry> _entries = [];
+class _ReadingMemoDetailScreenState
+    extends ConsumerState<ReadingMemoDetailScreen> {
+  ReadingMemo? _memo;
+  List<ReadingMemoEntry> _entries = [];
   bool _isLoading = true;
   bool _isProcessingAI = false;
-  bool _isGeneratingMetadata = false;
   ThinkingStyle _selectedThinkingStyle = ThinkingStyle.socrates;
 
   AppDatabase get _db => ref.read(databaseProvider);
@@ -43,9 +47,9 @@ class _DailyMemoDetailScreenState
   Future<void> _loadMemoAndEntries() async {
     setState(() => _isLoading = true);
     try {
-      final memo = await _db.dailyMemosDao.getDailyMemoById(widget.memoId);
+      final memo = await _db.readingMemosDao.getMemoById(widget.memoId);
       final entries =
-          await _db.dailyMemoEntriesDao.getEntriesByMemoId(widget.memoId);
+          await _db.readingMemoEntriesDao.getEntriesByMemoId(widget.memoId);
       if (mounted) {
         setState(() {
           _memo = memo;
@@ -72,11 +76,11 @@ class _DailyMemoDetailScreenState
 
     try {
       final prompt = '''
-以下の日常メモを要約してください。
+以下の読書メモを要約してください。
 重要なポイントを3-5個の箇条書きで簡潔にまとめてください。
 
 【メモ内容】
-${_memo!.content}
+${_memo!.content ?? _memo!.thoughtText}
 ''';
 
       final schema = {
@@ -114,10 +118,10 @@ ${keyPoints.map((p) => '• $p').join('\n')}
 ''';
 
       // エントリーとして保存
-      await _db.dailyMemoEntriesDao.insertEntry(
-        DailyMemoEntriesCompanion.insert(
+      await _db.readingMemoEntriesDao.insertEntry(
+        ReadingMemoEntriesCompanion.insert(
           memoId: widget.memoId,
-          entryType: DailyMemoEntryType.aiSummary,
+          entryType: MemoEntryType.aiSummary,
           content: formattedResult,
           thinkingStyleName: Value(_selectedThinkingStyle.name),
         ),
@@ -152,11 +156,11 @@ ${keyPoints.map((p) => '• $p').join('\n')}
 
     try {
       final prompt = '''
-以下の日常メモを、より分かりやすく読みやすい文章にリライトしてください。
+以下の読書メモを、より分かりやすく読みやすい文章にリライトしてください。
 内容の意味は変えずに、表現を整理して改善してください。
 
 【元のメモ】
-${_memo!.content}
+${_memo!.content ?? _memo!.thoughtText}
 ''';
 
       final schema = {
@@ -176,10 +180,10 @@ ${_memo!.content}
       final rewritten = result['rewritten'] as String;
 
       // エントリーとして保存
-      await _db.dailyMemoEntriesDao.insertEntry(
-        DailyMemoEntriesCompanion.insert(
+      await _db.readingMemoEntriesDao.insertEntry(
+        ReadingMemoEntriesCompanion.insert(
           memoId: widget.memoId,
-          entryType: DailyMemoEntryType.aiRewrite,
+          entryType: MemoEntryType.aiRewrite,
           content: rewritten,
           thinkingStyleName: Value(_selectedThinkingStyle.name),
         ),
@@ -244,10 +248,10 @@ ${_memo!.content}
 
     try {
       final prompt = '''
-以下の日常メモについて質問に答えてください。
+以下の読書メモについて質問に答えてください。
 
 【メモ内容】
-${_memo!.content}
+${_memo!.content ?? _memo!.thoughtText}
 
 【質問】
 $question
@@ -278,10 +282,10 @@ $answer
 ''';
 
       // エントリーとして保存
-      await _db.dailyMemoEntriesDao.insertEntry(
-        DailyMemoEntriesCompanion.insert(
+      await _db.readingMemoEntriesDao.insertEntry(
+        ReadingMemoEntriesCompanion.insert(
           memoId: widget.memoId,
-          entryType: DailyMemoEntryType.aiQA,
+          entryType: MemoEntryType.aiQA,
           content: formattedResult,
           question: Value(question),
           thinkingStyleName: Value(_selectedThinkingStyle.name),
@@ -341,10 +345,10 @@ $answer
     if (note == null || note.trim().isEmpty) return;
 
     try {
-      await _db.dailyMemoEntriesDao.insertEntry(
-        DailyMemoEntriesCompanion.insert(
+      await _db.readingMemoEntriesDao.insertEntry(
+        ReadingMemoEntriesCompanion.insert(
           memoId: widget.memoId,
-          entryType: DailyMemoEntryType.manualNote,
+          entryType: MemoEntryType.manualNote,
           content: note.trim(),
         ),
       );
@@ -365,7 +369,7 @@ $answer
     }
   }
 
-  Future<void> _deleteEntry(DailyMemoEntry entry) async {
+  Future<void> _deleteEntry(ReadingMemoEntry entry) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -390,7 +394,7 @@ $answer
     if (confirm != true) return;
 
     try {
-      await _db.dailyMemoEntriesDao.deleteEntry(entry.id);
+      await _db.readingMemoEntriesDao.deleteEntry(entry.id);
       await _loadMemoAndEntries();
 
       if (mounted) {
@@ -407,142 +411,37 @@ $answer
     }
   }
 
-  Future<void> _deleteMemo() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('削除確認'),
-        content: const Text('この日常メモを削除しますか？\n※追記履歴もすべて削除されます'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      try {
-        // 追記履歴も削除
-        await _db.dailyMemoEntriesDao.deleteAllEntriesByMemoId(widget.memoId);
-        await _db.dailyMemosDao.deleteDailyMemo(widget.memoId);
-        if (mounted) {
-          Navigator.of(context).pop(true);
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('削除に失敗しました: $e')),
-          );
-        }
-      }
-    }
-  }
-
-  Future<void> _generateMetadata() async {
-    if (_memo == null) return;
-
-    setState(() {
-      _isGeneratingMetadata = true;
-    });
-
-    try {
-      final prompt = '''
-以下の日常メモから、適切なメタ情報を生成してください。
-
-【メモ内容】
-${_memo!.content}
-
-以下の情報を生成してください：
-1. タイトル: メモの内容を端的に表す短いタイトル（10文字以内）
-2. カテゴリ: メモの分類（例: 仕事、学習、プライベート、アイデアなど）
-''';
-
-      final schema = {
-        'type': 'object',
-        'properties': {
-          'title': {'type': 'string', 'description': 'メモのタイトル（10文字以内）'},
-          'category': {'type': 'string', 'description': 'メモのカテゴリ'},
-        },
-        'required': ['title', 'category']
-      };
-
-      final result = await AIClient.instance.generateStructured(
-        prompt: prompt,
-        jsonSchema: schema,
-        mode: AIMode.standard,
-      );
-
-      final title = result['title'] as String;
-      final category = result['category'] as String;
-
-      // データベースを更新
-      await _db.dailyMemosDao.updateDailyMemo(
-        _memo!.copyWith(
-          title: Value(title),
-          category: Value(category),
-        ),
-      );
-
-      await _loadMemoAndEntries();
-
-      if (mounted) {
-        setState(() {
-          _isGeneratingMetadata = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('メタ情報を生成しました')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isGeneratingMetadata = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('メタ情報の生成に失敗しました: $e')),
-        );
-      }
-    }
-  }
-
-  String _getEntryTypeLabel(DailyMemoEntryType type) {
+  String _getEntryTypeLabel(MemoEntryType type) {
     switch (type) {
-      case DailyMemoEntryType.original:
+      case MemoEntryType.original:
         return '初回記録';
-      case DailyMemoEntryType.aiSummary:
+      case MemoEntryType.aiSummary:
         return 'AI要約';
-      case DailyMemoEntryType.aiRewrite:
+      case MemoEntryType.aiRewrite:
         return 'AIリライト';
-      case DailyMemoEntryType.aiQA:
+      case MemoEntryType.aiQA:
         return '質問応答';
-      case DailyMemoEntryType.manualNote:
+      case MemoEntryType.manualNote:
         return '手動追記';
     }
   }
 
-  IconData _getEntryTypeIcon(DailyMemoEntryType type) {
+  IconData _getEntryTypeIcon(MemoEntryType type) {
     switch (type) {
-      case DailyMemoEntryType.original:
+      case MemoEntryType.original:
         return Icons.create;
-      case DailyMemoEntryType.aiSummary:
+      case MemoEntryType.aiSummary:
         return Icons.summarize;
-      case DailyMemoEntryType.aiRewrite:
+      case MemoEntryType.aiRewrite:
         return Icons.edit_note;
-      case DailyMemoEntryType.aiQA:
+      case MemoEntryType.aiQA:
         return Icons.question_answer;
-      case DailyMemoEntryType.manualNote:
+      case MemoEntryType.manualNote:
         return Icons.note_add;
     }
   }
 
-  Widget _buildEntryCard(DailyMemoEntry entry, ThemeData theme) {
+  Widget _buildEntryCard(ReadingMemoEntry entry, ThemeData theme) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -556,13 +455,13 @@ ${_memo!.content}
                 Icon(
                   _getEntryTypeIcon(entry.entryType),
                   size: 18,
-                  color: AppPalette.daily,
+                  color: AppPalette.reading,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   _getEntryTypeLabel(entry.entryType),
                   style: theme.textTheme.titleSmall?.copyWith(
-                    color: AppPalette.daily,
+                    color: AppPalette.reading,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -574,18 +473,19 @@ ${_memo!.content}
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppPalette.daily.withOpacity(0.1),
+                      color: AppPalette.reading.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       ThinkingStyle.values
-                          .firstWhere(
-                            (s) => s.name == entry.thinkingStyleName,
-                            orElse: () => ThinkingStyle.socrates,
-                          )
-                          .displayName!,
+                              .firstWhere(
+                                (s) => s.name == entry.thinkingStyleName,
+                                orElse: () => ThinkingStyle.socrates,
+                              )
+                              .displayName ??
+                          entry.thinkingStyleName!,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppPalette.daily,
+                        color: AppPalette.reading,
                       ),
                     ),
                   ),
@@ -642,133 +542,66 @@ ${_memo!.content}
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_memo!.title ?? '日常メモ'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: _deleteMemo,
-            tooltip: '削除',
-          ),
-        ],
+        title: const Text('メモ詳細'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // カテゴリータグとメタ情報生成ボタン
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppPalette.soften(AppPalette.daily, 0.8),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    '日常メモ',
-                    style: TextStyle(
-                      color: AppPalette.daily,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                if (_memo?.title == null || _memo?.category == null)
-                  OutlinedButton.icon(
-                    onPressed: _isGeneratingMetadata ? null : _generateMetadata,
-                    icon: _isGeneratingMetadata
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.auto_awesome, size: 16),
-                    label: const Text('メタ情報生成'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+            // 書籍情報
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.book, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        widget.bookTitle,
+                        style: theme.textTheme.titleSmall,
                       ),
                     ),
-                  ),
-              ],
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 16),
 
-            // メタ情報表示
-            if (_memo!.title != null || _memo!.category != null) ...[
-              Card(
-                color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'メタ情報',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed:
-                                _isGeneratingMetadata ? null : _generateMetadata,
-                            icon: _isGeneratingMetadata
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child:
-                                        CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.refresh, size: 16),
-                            label: const Text('再生成'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                            ),
-                          ),
-                        ],
+            // メタ情報
+            if (_memo!.sectionTitle != null &&
+                _memo!.sectionTitle!.isNotEmpty) ...{
+              Row(
+                children: [
+                  const Icon(Icons.topic, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _memo!.sectionTitle!,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: AppPalette.reading,
+                        fontWeight: FontWeight.bold,
                       ),
-                      if (_memo!.title != null) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(Icons.title, size: 16),
-                            const SizedBox(width: 8),
-                            Text(
-                              'タイトル: ${_memo!.title}',
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
-                      ],
-                      if (_memo!.category != null) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(Icons.category, size: 16),
-                            const SizedBox(width: 8),
-                            Text(
-                              'カテゴリ: ${_memo!.category}',
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
-                ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            },
+            if (_memo!.pageNumber != null && _memo!.pageNumber!.isNotEmpty) ...{
+              Row(
+                children: [
+                  const Icon(Icons.numbers, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'ページ: ${_memo!.pageNumber}',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
-            ],
+            },
 
             // 元のメモ本文
             Text(
@@ -784,22 +617,17 @@ ${_memo!.content}
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 状況・出来事と思考メモを分けて表示
-                    if (_memo!.content.contains('【状況・出来事】') &&
-                        _memo!.content.contains('【思考メモ】')) ...[
-                      // 状況・出来事部分
+                    if (_memo!.excerptText != null &&
+                        _memo!.excerptText!.isNotEmpty) ...{
                       Text(
-                        '状況・出来事',
+                        '本文抜粋',
                         style: theme.textTheme.labelLarge?.copyWith(
-                          color: AppPalette.daily,
+                          color: AppPalette.reading,
                         ),
                       ),
                       const SizedBox(height: 8),
                       SelectableContextText(
-                        text: _memo!.content
-                            .split('【思考メモ】')[0]
-                            .replaceFirst('【状況・出来事】', '')
-                            .trim(),
+                        text: _memo!.excerptText!,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontStyle: FontStyle.italic,
                         ),
@@ -807,25 +635,18 @@ ${_memo!.content}
                       const SizedBox(height: 16),
                       const Divider(),
                       const SizedBox(height: 16),
-                      // 思考メモ部分
                       Text(
                         '思考メモ',
                         style: theme.textTheme.labelLarge?.copyWith(
-                          color: AppPalette.daily,
+                          color: AppPalette.reading,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      SelectableContextText(
-                        text: _memo!.content.split('【思考メモ】')[1].trim(),
-                        style: theme.textTheme.bodyLarge,
-                      ),
-                    ] else ...[
-                      // 思考メモのみの場合
-                      SelectableContextText(
-                        text: _memo!.content,
-                        style: theme.textTheme.bodyLarge,
-                      ),
-                    ],
+                    },
+                    SelectableContextText(
+                      text: _memo!.content ?? _memo!.thoughtText,
+                      style: theme.textTheme.bodyLarge,
+                    ),
                   ],
                 ),
               ),
@@ -965,13 +786,13 @@ ${_memo!.content}
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppPalette.daily.withOpacity(0.2),
+                      color: AppPalette.reading.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       '${_entries.length}',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppPalette.daily,
+                        color: AppPalette.reading,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

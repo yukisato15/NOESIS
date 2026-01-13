@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import 'reading_detail_screen.dart';
 import 'reading_add_screen.dart';
@@ -298,19 +299,25 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
                                     style: const TextStyle(color: AppPalette.reading),
                                   ),
                                 ),
-                                title: Text(entry.title),
+                                title: SelectableContextText(
+                                  text: entry.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      bookTitle,
+                                    SelectableContextText(
+                                      text: bookTitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: theme.textTheme.bodyMedium?.copyWith(
                                         fontWeight: FontWeight.w600,
                                         color: AppPalette.reading,
                                       ),
                                     ),
-                                    Text(
-                                      entry.body,
+                                    SelectableContextText(
+                                      text: entry.body,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),

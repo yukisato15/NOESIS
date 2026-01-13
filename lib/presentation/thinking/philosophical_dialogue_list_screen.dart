@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/ai/ai_client.dart';
 import '../../core/ai/ai_mode.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import '../../data/local/tables/concept_dictionaries_table.dart';
 import '../../data/local/tables/philosophical_messages_table.dart';
@@ -290,8 +291,10 @@ $conversation
                     ),
                     child: Icon(Icons.forum, color: AppPalette.thinking),
                   ),
-                  title: Text(
-                    dialogue.title.trim().isEmpty ? '無題の対話' : dialogue.title,
+                  title: SelectableContextText(
+                    text: dialogue.title.trim().isEmpty ? '無題の対話' : dialogue.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleMedium,
                   ),
                   subtitle: Column(
@@ -300,8 +303,8 @@ $conversation
                       if (dialogue.summary != null &&
                           dialogue.summary!.trim().isNotEmpty) ...[
                         const SizedBox(height: 4),
-                        Text(
-                          dialogue.summary!,
+                        SelectableContextText(
+                          text: dialogue.summary!,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -311,8 +314,10 @@ $conversation
                         ),
                       ],
                       const SizedBox(height: 4),
-                      Text(
-                        '最終更新 ${_formatDate(dialogue.updatedAt)}',
+                      SelectableContextText(
+                        text: '最終更新 ${_formatDate(dialogue.updatedAt)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.secondary,
                         ),

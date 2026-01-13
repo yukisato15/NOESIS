@@ -8,9 +8,12 @@ import 'package:path_provider/path_provider.dart';
 
 import 'tables/ai_sessions_table.dart';
 import 'tables/books_table.dart';
+import 'tables/code_entries_table.dart';
+import 'tables/code_entry_entries_table.dart';
 import 'tables/concept_dictionaries_table.dart';
 import 'tables/concept_memos_table.dart';
 import 'tables/daily_memos_table.dart';
+import 'tables/daily_memo_entries_table.dart';
 import 'tables/dictionary_fields_table.dart';
 import 'tables/dictionary_entry_values_table.dart';
 import 'tables/dictionary_entries_table.dart';
@@ -23,17 +26,22 @@ import 'tables/philosophical_dialogues_table.dart';
 import 'tables/philosophical_messages_table.dart';
 import 'tables/quotes_table.dart';
 import 'tables/reading_memos_table.dart';
+import 'tables/reading_memo_entries_table.dart';
 import 'tables/reading_reflections_table.dart';
 import 'tables/sources_table.dart';
 import 'tables/tags_table.dart';
 import 'dao/entries_dao.dart';
+import 'dao/code_entries_dao.dart';
+import 'dao/code_entry_entries_dao.dart';
 import 'dao/concept_memos_dao.dart';
 import 'dao/daily_memos_dao.dart';
+import 'dao/daily_memo_entries_dao.dart';
 import 'dao/dictionaries_dao.dart';
 import 'dao/philosophical_dialogues_dao.dart';
 import 'dao/quotes_dao.dart';
 import 'dao/books_dao.dart';
 import 'dao/reading_memos_dao.dart';
+import 'dao/reading_memo_entries_dao.dart';
 
 part 'database.g.dart';
 
@@ -44,10 +52,14 @@ part 'database.g.dart';
     EntryAppendices,
     Books,
     ReadingMemos,
+    ReadingMemoEntries,
     ReadingReflections,
+    CodeEntries,
+    CodeEntryEntries,
     ConceptDictionaries,
     ConceptMemos,
     DailyMemos,
+    DailyMemoEntries,
     DictionaryDefinitions,
     DictionaryFields,
     DictionaryEntries,
@@ -64,13 +76,17 @@ part 'database.g.dart';
   ],
   daos: [
     EntriesDao,
+    CodeEntriesDao,
+    CodeEntryEntriesDao,
     ConceptMemosDao,
     DailyMemosDao,
+    DailyMemoEntriesDao,
     DictionariesDao,
     PhilosophicalDialoguesDao,
     QuotesDao,
     BooksDao,
     ReadingMemosDao,
+    ReadingMemoEntriesDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -167,7 +183,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   Future<void> _normalizeDateTimeColumns() async {
     const tables = <String, List<String>>{
@@ -265,6 +281,156 @@ class AppDatabase extends _$AppDatabase {
       if (!columnNames.contains(entry.key)) {
         await customStatement(
           'ALTER TABLE concept_dictionaries ADD COLUMN ${entry.key} ${entry.value}',
+        );
+      }
+    }
+  }
+
+  Future<void> ensureBooksColumns() async {
+    final exists = await customSelect(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      variables: [Variable<String>('books')],
+    ).getSingleOrNull();
+    if (exists == null) {
+      return;
+    }
+
+    final columns = await customSelect(
+      "PRAGMA table_info('books')",
+    ).get();
+    final columnNames = columns.map((row) => row.read<String>('name')).toSet();
+
+    final requiredColumns = <String, String>{
+      'genre': 'TEXT',
+      'publisher': 'TEXT',
+      'published_date': 'TEXT',
+      'isbn': 'TEXT',
+      'synopsis': 'TEXT',
+      'rating': 'TEXT',
+      'related_url': 'TEXT',
+      'review_summary': 'TEXT',
+      'created_at': 'INTEGER',
+      'updated_at': 'INTEGER',
+    };
+
+    for (final entry in requiredColumns.entries) {
+      if (!columnNames.contains(entry.key)) {
+        await customStatement(
+          'ALTER TABLE books ADD COLUMN ${entry.key} ${entry.value}',
+        );
+      }
+    }
+  }
+
+  Future<void> ensureReadingMemosColumns() async {
+    final exists = await customSelect(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      variables: [Variable<String>('reading_memos')],
+    ).getSingleOrNull();
+    if (exists == null) {
+      return;
+    }
+
+    final columns = await customSelect(
+      "PRAGMA table_info('reading_memos')",
+    ).get();
+    final columnNames = columns.map((row) => row.read<String>('name')).toSet();
+
+    final requiredColumns = <String, String>{
+      'section_title': 'TEXT',
+      'page_number': 'TEXT',
+      'updated_at': 'INTEGER',
+      'type': 'INTEGER NOT NULL DEFAULT 0', // 0 = excerpt (デフォルト)
+      'excerpt_text': 'TEXT',
+      'thought_text': 'TEXT NOT NULL DEFAULT \'\'',
+    };
+
+    for (final entry in requiredColumns.entries) {
+      if (!columnNames.contains(entry.key)) {
+        await customStatement(
+          'ALTER TABLE reading_memos ADD COLUMN ${entry.key} ${entry.value}',
+        );
+      }
+    }
+  }
+
+  Future<void> _ensureReadingMemoEntriesTable() async {
+    final exists = await customSelect(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      variables: [Variable<String>('reading_memo_entries')],
+    ).getSingleOrNull();
+
+    if (exists != null) {
+      return; // テーブルが既に存在する
+    }
+
+    // テーブルを作成
+    await customStatement('''
+      CREATE TABLE reading_memo_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        memo_id INTEGER NOT NULL,
+        entry_type INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        question TEXT,
+        thinking_style_name TEXT,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+      )
+    ''');
+  }
+
+  Future<void> _ensureDailyMemoEntriesTable() async {
+    final exists = await customSelect(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      variables: [Variable<String>('daily_memo_entries')],
+    ).getSingleOrNull();
+
+    if (exists != null) {
+      return; // テーブルが既に存在する
+    }
+
+    // テーブルを作成
+    await customStatement('''
+      CREATE TABLE daily_memo_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        memo_id INTEGER NOT NULL,
+        entry_type INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        question TEXT,
+        thinking_style_name TEXT,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+      )
+    ''');
+  }
+
+  /// ITコード学習の新しいカラムを追加
+  Future<void> _ensureCodeEntriesColumns() async {
+    // 既存のテーブル構造を確認
+    final tableInfo = await customSelect(
+      "PRAGMA table_info(code_entries)",
+    ).get();
+
+    final existingColumns = tableInfo.map((row) => row.data['name'] as String).toSet();
+
+    // 追加が必要なカラムのリスト
+    final newColumns = {
+      'synonymous_codes': 'TEXT',
+      'antonymous_codes': 'TEXT',
+      'related_codes': 'TEXT',
+      'examples': 'TEXT',
+      'cautions': 'TEXT',
+      'trivia': 'TEXT',
+      'tips': 'TEXT',
+      'common_mistakes': 'TEXT',
+      'gyaru_explanation': 'TEXT',
+      'kindergarten_explanation': 'TEXT',
+      'learning_level': 'INTEGER',
+    };
+
+    // 存在しないカラムを追加
+    for (final entry in newColumns.entries) {
+      if (!existingColumns.contains(entry.key)) {
+        await customStatement(
+          'ALTER TABLE code_entries ADD COLUMN ${entry.key} ${entry.value}',
         );
       }
     }
@@ -1287,7 +1453,72 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(quotes, quotes.updatedAt);
       }
     },
+    beforeOpen: (details) async {
+      // Ensure all dynamic columns exist
+      await ensureBooksColumns();
+      await ensureReadingMemosColumns();
+      await ensureConceptDictionaryColumns();
+      // Ensure reading_memo_entries table exists
+      await _ensureReadingMemoEntriesTable();
+      // Ensure daily_memo_entries table exists
+      await _ensureDailyMemoEntriesTable();
+      // Ensure code entries tables exist
+      await _ensureCodeEntriesTables();
+    },
   );
+
+  Future<void> _ensureCodeEntriesTables() async {
+    // Check if code_entries table exists
+    final codeEntriesExists = await customSelect(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      variables: [Variable<String>('code_entries')],
+    ).getSingleOrNull();
+
+    if (codeEntriesExists == null) {
+      // Create code_entries table
+      await customStatement('''
+        CREATE TABLE code_entries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          code TEXT NOT NULL,
+          entry_type INTEGER NOT NULL,
+          language TEXT,
+          libraries TEXT,
+          structure TEXT,
+          capabilities TEXT,
+          use_cases TEXT,
+          learning_points TEXT,
+          tags TEXT,
+          category TEXT,
+          created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+          updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+        )
+      ''');
+    }
+
+    // Check if code_entry_entries table exists
+    final codeEntryEntriesExists = await customSelect(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      variables: [Variable<String>('code_entry_entries')],
+    ).getSingleOrNull();
+
+    if (codeEntryEntriesExists == null) {
+      // Create code_entry_entries table
+      await customStatement('''
+        CREATE TABLE code_entry_entries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          code_entry_id INTEGER NOT NULL,
+          entry_type INTEGER NOT NULL,
+          content TEXT NOT NULL,
+          thinking_style_name TEXT,
+          created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+        )
+      ''');
+    }
+
+    // Ensure new columns exist in code_entries table
+    await _ensureCodeEntriesColumns();
+  }
 
   Future<void> ensureDictionaryRecovery() async {
     try {

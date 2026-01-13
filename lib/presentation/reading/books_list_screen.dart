@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import 'book_add_screen.dart';
 import 'book_detail_screen.dart';
@@ -338,8 +339,10 @@ class _BooksListScreenState extends ConsumerState<BooksListScreen> {
                                     ),
                                   ),
                                 ),
-                                title: Text(
-                                  book.title,
+                                title: SelectableContextText(
+                                  text: book.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -348,8 +351,10 @@ class _BooksListScreenState extends ConsumerState<BooksListScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const SizedBox(height: 4),
-                                    Text(
-                                      book.author,
+                                    SelectableContextText(
+                                      text: book.author,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: theme.textTheme.bodyMedium?.copyWith(
                                         color: theme.colorScheme.secondary,
                                       ),

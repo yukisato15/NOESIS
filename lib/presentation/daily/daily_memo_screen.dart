@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import 'daily_memo_detail_screen.dart';
 import 'daily_memo_add_screen.dart';
@@ -338,16 +339,18 @@ class _DailyMemoScreenState extends ConsumerState<DailyMemoScreen> {
                                     color: AppPalette.daily,
                                   ),
                                 ),
-                                title: Text(
-                                  memo.title ?? '無題',
+                                title: SelectableContextText(
+                                  text: memo.title ?? '無題',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.titleMedium,
                                 ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const SizedBox(height: 4),
-                                    Text(
-                                      memo.content,
+                                    SelectableContextText(
+                                      text: memo.content,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),

@@ -4,6 +4,7 @@ import '../dictionary/dictionary_screen.dart';
 import '../reading/books_list_screen.dart';
 import '../thinking/thinking_screen.dart';
 import '../daily/daily_memo_screen.dart';
+import '../code/code_entry_list_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -88,6 +89,20 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _ArchiveTile(
+                  icon: ArchiveIconType.code,
+                  title: 'ITコード学習',
+                  subtitle: 'コードを記録・学習',
+                  detail: '画像OCR・AI解説・知識定着',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const CodeEntryListScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                _ArchiveTile(
                   icon: ArchiveIconType.search,
                   title: '検索',
                   subtitle: 'まとめて探す',
@@ -141,6 +156,7 @@ enum ArchiveIconType {
   reading,
   dictionary,
   daily,
+  code,
   search,
 }
 
@@ -206,6 +222,14 @@ class _ArchiveIconPainter extends CustomPainter {
         _drawDot(canvas, const Offset(19, 9), paint);
         _drawDot(canvas, const Offset(9, 19), paint);
         _drawDot(canvas, const Offset(19, 19), paint);
+        break;
+      case ArchiveIconType.code:
+        // </>のようなコードブラケットを描く
+        canvas.drawLine(const Offset(8, 14), const Offset(5, 11), paint);
+        canvas.drawLine(const Offset(5, 11), const Offset(8, 8), paint);
+        canvas.drawLine(const Offset(20, 14), const Offset(23, 11), paint);
+        canvas.drawLine(const Offset(23, 11), const Offset(20, 8), paint);
+        canvas.drawLine(const Offset(11, 16), const Offset(17, 6), paint);
         break;
       case ArchiveIconType.search:
         _drawNode(canvas, const Offset(10, 11), paint, radius: 5);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/selectable_context_text.dart';
 import 'package:dart_openai/dart_openai.dart';
 import '../../data/local/database.dart';
 import '../../core/ai/thinking_styles/thinking_style.dart';
@@ -299,8 +300,8 @@ class _ConceptMemoDetailScreenState extends State<ConceptMemoDetailScreen> {
           ),
           const SizedBox(height: 16),
           if (_memo!.title != null) ...[
-            Text(
-              _memo!.title!,
+            SelectableContextText(
+              text: _memo!.title!,
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -333,8 +334,8 @@ class _ConceptMemoDetailScreenState extends State<ConceptMemoDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    _memo!.summary!,
+                  SelectableContextText(
+                    text: _memo!.summary!,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontStyle: FontStyle.italic,
                     ),
@@ -344,8 +345,8 @@ class _ConceptMemoDetailScreenState extends State<ConceptMemoDetailScreen> {
             ),
             const SizedBox(height: 24),
           ],
-          Text(
-            _memo!.content,
+          SelectableContextText(
+            text: _memo!.content,
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: 24),

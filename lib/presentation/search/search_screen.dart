@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+
+import '../../core/widgets/selectable_context_text.dart';
 import '../../core/theme/app_palette.dart';
 import '../../data/local/database.dart';
 import 'advanced_search_screen.dart';
@@ -508,13 +510,20 @@ class _ResultTile extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: ListTile(
         leading: Icon(icon, color: color),
-        title: Text(title.isEmpty ? '無題' : title),
+        title: SelectableContextText(
+          text: title.isEmpty ? '無題' : title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (category != null) ...[
-              Text(
-                category,
+              SelectableContextText(
+                text: category,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 11,
                   color: color,
@@ -523,8 +532,8 @@ class _ResultTile extends StatelessWidget {
               ),
               const SizedBox(height: 2),
             ],
-            Text(
-              body,
+            SelectableContextText(
+              text: body,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),

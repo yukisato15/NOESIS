@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import 'concept_memo_detail_screen.dart';
 import 'concept_memo_add_ai_screen.dart';
@@ -88,8 +89,10 @@ class _ConceptMemoListScreenState extends ConsumerState<ConceptMemoListScreen> {
                       color: AppPalette.thinking,
                     ),
                   ),
-                  title: Text(
-                    memo.title ?? '無題',
+                  title: SelectableContextText(
+                    text: memo.title ?? '無題',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleMedium,
                   ),
                   subtitle: Column(
@@ -97,8 +100,8 @@ class _ConceptMemoListScreenState extends ConsumerState<ConceptMemoListScreen> {
                     children: [
                       if (memo.summary != null) ...[
                         const SizedBox(height: 4),
-                        Text(
-                          memo.summary!,
+                        SelectableContextText(
+                          text: memo.summary!,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -108,8 +111,8 @@ class _ConceptMemoListScreenState extends ConsumerState<ConceptMemoListScreen> {
                         ),
                       ],
                       const SizedBox(height: 4),
-                      Text(
-                        memo.content,
+                      SelectableContextText(
+                        text: memo.content,
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),

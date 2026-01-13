@@ -3162,12 +3162,32 @@ class $ReadingMemosTable extends ReadingMemos
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _contentMeta = const VerificationMeta(
-    'content',
+  @override
+  late final GeneratedColumnWithTypeConverter<MemoType, int> type =
+      GeneratedColumn<int>(
+        'type',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<MemoType>($ReadingMemosTable.$convertertype);
+  static const VerificationMeta _excerptTextMeta = const VerificationMeta(
+    'excerptText',
   );
   @override
-  late final GeneratedColumn<String> content = GeneratedColumn<String>(
-    'content',
+  late final GeneratedColumn<String> excerptText = GeneratedColumn<String>(
+    'excerpt_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _thoughtTextMeta = const VerificationMeta(
+    'thoughtText',
+  );
+  @override
+  late final GeneratedColumn<String> thoughtText = GeneratedColumn<String>(
+    'thought_text',
     aliasedName,
     false,
     type: DriftSqlType.string,
@@ -3218,15 +3238,29 @@ class $ReadingMemosTable extends ReadingMemos
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     bookId,
-    content,
+    type,
+    excerptText,
+    thoughtText,
     sectionTitle,
     pageNumber,
     createdAt,
     updatedAt,
+    content,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3251,13 +3285,25 @@ class $ReadingMemosTable extends ReadingMemos
     } else if (isInserting) {
       context.missing(_bookIdMeta);
     }
-    if (data.containsKey('content')) {
+    if (data.containsKey('excerpt_text')) {
       context.handle(
-        _contentMeta,
-        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+        _excerptTextMeta,
+        excerptText.isAcceptableOrUnknown(
+          data['excerpt_text']!,
+          _excerptTextMeta,
+        ),
+      );
+    }
+    if (data.containsKey('thought_text')) {
+      context.handle(
+        _thoughtTextMeta,
+        thoughtText.isAcceptableOrUnknown(
+          data['thought_text']!,
+          _thoughtTextMeta,
+        ),
       );
     } else if (isInserting) {
-      context.missing(_contentMeta);
+      context.missing(_thoughtTextMeta);
     }
     if (data.containsKey('section_title')) {
       context.handle(
@@ -3286,6 +3332,12 @@ class $ReadingMemosTable extends ReadingMemos
         updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
       );
     }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    }
     return context;
   }
 
@@ -3303,9 +3355,19 @@ class $ReadingMemosTable extends ReadingMemos
         DriftSqlType.int,
         data['${effectivePrefix}book_id'],
       )!,
-      content: attachedDatabase.typeMapping.read(
+      type: $ReadingMemosTable.$convertertype.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}type'],
+        )!,
+      ),
+      excerptText: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}content'],
+        data['${effectivePrefix}excerpt_text'],
+      ),
+      thoughtText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}thought_text'],
       )!,
       sectionTitle: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -3323,6 +3385,10 @@ class $ReadingMemosTable extends ReadingMemos
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       ),
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      ),
     );
   }
 
@@ -3330,6 +3396,9 @@ class $ReadingMemosTable extends ReadingMemos
   $ReadingMemosTable createAlias(String alias) {
     return $ReadingMemosTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<MemoType, int, int> $convertertype =
+      const EnumIndexConverter<MemoType>(MemoType.values);
 }
 
 class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
@@ -3338,8 +3407,14 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
   /// 所属する書籍ID
   final int bookId;
 
-  /// 本文（手入力またはLive Textでコピペ）
-  final String content;
+  /// メモの種類（本文抜粋/思考メモ/感想）
+  final MemoType type;
+
+  /// 本文抜粋（typeがexcerptの時のみ使用）
+  final String? excerptText;
+
+  /// 思考メモ（全タイプで使用可能）
+  final String thoughtText;
 
   /// 小タイトル（章名、トピック名など）
   final String? sectionTitle;
@@ -3352,21 +3427,33 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
 
   /// 更新日時
   final DateTime? updatedAt;
+  final String? content;
   const ReadingMemo({
     required this.id,
     required this.bookId,
-    required this.content,
+    required this.type,
+    this.excerptText,
+    required this.thoughtText,
     this.sectionTitle,
     this.pageNumber,
     required this.createdAt,
     this.updatedAt,
+    this.content,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['book_id'] = Variable<int>(bookId);
-    map['content'] = Variable<String>(content);
+    {
+      map['type'] = Variable<int>(
+        $ReadingMemosTable.$convertertype.toSql(type),
+      );
+    }
+    if (!nullToAbsent || excerptText != null) {
+      map['excerpt_text'] = Variable<String>(excerptText);
+    }
+    map['thought_text'] = Variable<String>(thoughtText);
     if (!nullToAbsent || sectionTitle != null) {
       map['section_title'] = Variable<String>(sectionTitle);
     }
@@ -3377,6 +3464,9 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
     }
+    if (!nullToAbsent || content != null) {
+      map['content'] = Variable<String>(content);
+    }
     return map;
   }
 
@@ -3384,7 +3474,11 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
     return ReadingMemosCompanion(
       id: Value(id),
       bookId: Value(bookId),
-      content: Value(content),
+      type: Value(type),
+      excerptText: excerptText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(excerptText),
+      thoughtText: Value(thoughtText),
       sectionTitle: sectionTitle == null && nullToAbsent
           ? const Value.absent()
           : Value(sectionTitle),
@@ -3395,6 +3489,9 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(updatedAt),
+      content: content == null && nullToAbsent
+          ? const Value.absent()
+          : Value(content),
     );
   }
 
@@ -3406,11 +3503,16 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
     return ReadingMemo(
       id: serializer.fromJson<int>(json['id']),
       bookId: serializer.fromJson<int>(json['bookId']),
-      content: serializer.fromJson<String>(json['content']),
+      type: $ReadingMemosTable.$convertertype.fromJson(
+        serializer.fromJson<int>(json['type']),
+      ),
+      excerptText: serializer.fromJson<String?>(json['excerptText']),
+      thoughtText: serializer.fromJson<String>(json['thoughtText']),
       sectionTitle: serializer.fromJson<String?>(json['sectionTitle']),
       pageNumber: serializer.fromJson<String?>(json['pageNumber']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      content: serializer.fromJson<String?>(json['content']),
     );
   }
   @override
@@ -3419,36 +3521,53 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'bookId': serializer.toJson<int>(bookId),
-      'content': serializer.toJson<String>(content),
+      'type': serializer.toJson<int>(
+        $ReadingMemosTable.$convertertype.toJson(type),
+      ),
+      'excerptText': serializer.toJson<String?>(excerptText),
+      'thoughtText': serializer.toJson<String>(thoughtText),
       'sectionTitle': serializer.toJson<String?>(sectionTitle),
       'pageNumber': serializer.toJson<String?>(pageNumber),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'content': serializer.toJson<String?>(content),
     };
   }
 
   ReadingMemo copyWith({
     int? id,
     int? bookId,
-    String? content,
+    MemoType? type,
+    Value<String?> excerptText = const Value.absent(),
+    String? thoughtText,
     Value<String?> sectionTitle = const Value.absent(),
     Value<String?> pageNumber = const Value.absent(),
     DateTime? createdAt,
     Value<DateTime?> updatedAt = const Value.absent(),
+    Value<String?> content = const Value.absent(),
   }) => ReadingMemo(
     id: id ?? this.id,
     bookId: bookId ?? this.bookId,
-    content: content ?? this.content,
+    type: type ?? this.type,
+    excerptText: excerptText.present ? excerptText.value : this.excerptText,
+    thoughtText: thoughtText ?? this.thoughtText,
     sectionTitle: sectionTitle.present ? sectionTitle.value : this.sectionTitle,
     pageNumber: pageNumber.present ? pageNumber.value : this.pageNumber,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    content: content.present ? content.value : this.content,
   );
   ReadingMemo copyWithCompanion(ReadingMemosCompanion data) {
     return ReadingMemo(
       id: data.id.present ? data.id.value : this.id,
       bookId: data.bookId.present ? data.bookId.value : this.bookId,
-      content: data.content.present ? data.content.value : this.content,
+      type: data.type.present ? data.type.value : this.type,
+      excerptText: data.excerptText.present
+          ? data.excerptText.value
+          : this.excerptText,
+      thoughtText: data.thoughtText.present
+          ? data.thoughtText.value
+          : this.thoughtText,
       sectionTitle: data.sectionTitle.present
           ? data.sectionTitle.value
           : this.sectionTitle,
@@ -3457,6 +3576,7 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
           : this.pageNumber,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      content: data.content.present ? data.content.value : this.content,
     );
   }
 
@@ -3465,11 +3585,14 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
     return (StringBuffer('ReadingMemo(')
           ..write('id: $id, ')
           ..write('bookId: $bookId, ')
-          ..write('content: $content, ')
+          ..write('type: $type, ')
+          ..write('excerptText: $excerptText, ')
+          ..write('thoughtText: $thoughtText, ')
           ..write('sectionTitle: $sectionTitle, ')
           ..write('pageNumber: $pageNumber, ')
           ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('content: $content')
           ..write(')'))
         .toString();
   }
@@ -3478,11 +3601,14 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
   int get hashCode => Object.hash(
     id,
     bookId,
-    content,
+    type,
+    excerptText,
+    thoughtText,
     sectionTitle,
     pageNumber,
     createdAt,
     updatedAt,
+    content,
   );
   @override
   bool operator ==(Object other) =>
@@ -3490,77 +3616,102 @@ class ReadingMemo extends DataClass implements Insertable<ReadingMemo> {
       (other is ReadingMemo &&
           other.id == this.id &&
           other.bookId == this.bookId &&
-          other.content == this.content &&
+          other.type == this.type &&
+          other.excerptText == this.excerptText &&
+          other.thoughtText == this.thoughtText &&
           other.sectionTitle == this.sectionTitle &&
           other.pageNumber == this.pageNumber &&
           other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.content == this.content);
 }
 
 class ReadingMemosCompanion extends UpdateCompanion<ReadingMemo> {
   final Value<int> id;
   final Value<int> bookId;
-  final Value<String> content;
+  final Value<MemoType> type;
+  final Value<String?> excerptText;
+  final Value<String> thoughtText;
   final Value<String?> sectionTitle;
   final Value<String?> pageNumber;
   final Value<DateTime> createdAt;
   final Value<DateTime?> updatedAt;
+  final Value<String?> content;
   const ReadingMemosCompanion({
     this.id = const Value.absent(),
     this.bookId = const Value.absent(),
-    this.content = const Value.absent(),
+    this.type = const Value.absent(),
+    this.excerptText = const Value.absent(),
+    this.thoughtText = const Value.absent(),
     this.sectionTitle = const Value.absent(),
     this.pageNumber = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.content = const Value.absent(),
   });
   ReadingMemosCompanion.insert({
     this.id = const Value.absent(),
     required int bookId,
-    required String content,
+    required MemoType type,
+    this.excerptText = const Value.absent(),
+    required String thoughtText,
     this.sectionTitle = const Value.absent(),
     this.pageNumber = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.content = const Value.absent(),
   }) : bookId = Value(bookId),
-       content = Value(content);
+       type = Value(type),
+       thoughtText = Value(thoughtText);
   static Insertable<ReadingMemo> custom({
     Expression<int>? id,
     Expression<int>? bookId,
-    Expression<String>? content,
+    Expression<int>? type,
+    Expression<String>? excerptText,
+    Expression<String>? thoughtText,
     Expression<String>? sectionTitle,
     Expression<String>? pageNumber,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
+    Expression<String>? content,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (bookId != null) 'book_id': bookId,
-      if (content != null) 'content': content,
+      if (type != null) 'type': type,
+      if (excerptText != null) 'excerpt_text': excerptText,
+      if (thoughtText != null) 'thought_text': thoughtText,
       if (sectionTitle != null) 'section_title': sectionTitle,
       if (pageNumber != null) 'page_number': pageNumber,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (content != null) 'content': content,
     });
   }
 
   ReadingMemosCompanion copyWith({
     Value<int>? id,
     Value<int>? bookId,
-    Value<String>? content,
+    Value<MemoType>? type,
+    Value<String?>? excerptText,
+    Value<String>? thoughtText,
     Value<String?>? sectionTitle,
     Value<String?>? pageNumber,
     Value<DateTime>? createdAt,
     Value<DateTime?>? updatedAt,
+    Value<String?>? content,
   }) {
     return ReadingMemosCompanion(
       id: id ?? this.id,
       bookId: bookId ?? this.bookId,
-      content: content ?? this.content,
+      type: type ?? this.type,
+      excerptText: excerptText ?? this.excerptText,
+      thoughtText: thoughtText ?? this.thoughtText,
       sectionTitle: sectionTitle ?? this.sectionTitle,
       pageNumber: pageNumber ?? this.pageNumber,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      content: content ?? this.content,
     );
   }
 
@@ -3573,8 +3724,16 @@ class ReadingMemosCompanion extends UpdateCompanion<ReadingMemo> {
     if (bookId.present) {
       map['book_id'] = Variable<int>(bookId.value);
     }
-    if (content.present) {
-      map['content'] = Variable<String>(content.value);
+    if (type.present) {
+      map['type'] = Variable<int>(
+        $ReadingMemosTable.$convertertype.toSql(type.value),
+      );
+    }
+    if (excerptText.present) {
+      map['excerpt_text'] = Variable<String>(excerptText.value);
+    }
+    if (thoughtText.present) {
+      map['thought_text'] = Variable<String>(thoughtText.value);
     }
     if (sectionTitle.present) {
       map['section_title'] = Variable<String>(sectionTitle.value);
@@ -3588,6 +3747,9 @@ class ReadingMemosCompanion extends UpdateCompanion<ReadingMemo> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
     return map;
   }
 
@@ -3596,11 +3758,496 @@ class ReadingMemosCompanion extends UpdateCompanion<ReadingMemo> {
     return (StringBuffer('ReadingMemosCompanion(')
           ..write('id: $id, ')
           ..write('bookId: $bookId, ')
-          ..write('content: $content, ')
+          ..write('type: $type, ')
+          ..write('excerptText: $excerptText, ')
+          ..write('thoughtText: $thoughtText, ')
           ..write('sectionTitle: $sectionTitle, ')
           ..write('pageNumber: $pageNumber, ')
           ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('content: $content')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ReadingMemoEntriesTable extends ReadingMemoEntries
+    with TableInfo<$ReadingMemoEntriesTable, ReadingMemoEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReadingMemoEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _memoIdMeta = const VerificationMeta('memoId');
+  @override
+  late final GeneratedColumn<int> memoId = GeneratedColumn<int>(
+    'memo_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<MemoEntryType, int> entryType =
+      GeneratedColumn<int>(
+        'entry_type',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<MemoEntryType>(
+        $ReadingMemoEntriesTable.$converterentryType,
+      );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _questionMeta = const VerificationMeta(
+    'question',
+  );
+  @override
+  late final GeneratedColumn<String> question = GeneratedColumn<String>(
+    'question',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _thinkingStyleNameMeta = const VerificationMeta(
+    'thinkingStyleName',
+  );
+  @override
+  late final GeneratedColumn<String> thinkingStyleName =
+      GeneratedColumn<String>(
+        'thinking_style_name',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    memoId,
+    entryType,
+    content,
+    question,
+    thinkingStyleName,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reading_memo_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReadingMemoEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('memo_id')) {
+      context.handle(
+        _memoIdMeta,
+        memoId.isAcceptableOrUnknown(data['memo_id']!, _memoIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_memoIdMeta);
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('question')) {
+      context.handle(
+        _questionMeta,
+        question.isAcceptableOrUnknown(data['question']!, _questionMeta),
+      );
+    }
+    if (data.containsKey('thinking_style_name')) {
+      context.handle(
+        _thinkingStyleNameMeta,
+        thinkingStyleName.isAcceptableOrUnknown(
+          data['thinking_style_name']!,
+          _thinkingStyleNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ReadingMemoEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReadingMemoEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      memoId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}memo_id'],
+      )!,
+      entryType: $ReadingMemoEntriesTable.$converterentryType.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}entry_type'],
+        )!,
+      ),
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      question: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}question'],
+      ),
+      thinkingStyleName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}thinking_style_name'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ReadingMemoEntriesTable createAlias(String alias) {
+    return $ReadingMemoEntriesTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<MemoEntryType, int, int> $converterentryType =
+      const EnumIndexConverter<MemoEntryType>(MemoEntryType.values);
+}
+
+class ReadingMemoEntry extends DataClass
+    implements Insertable<ReadingMemoEntry> {
+  final int id;
+
+  /// 親メモのID
+  final int memoId;
+
+  /// エントリーの種類
+  final MemoEntryType entryType;
+
+  /// エントリーの内容
+  final String content;
+
+  /// 質問（entryTypeがaiQAの場合のみ使用）
+  final String? question;
+
+  /// 使用した思考スタイル（AI系エントリーの場合）
+  final String? thinkingStyleName;
+
+  /// 作成日時
+  final DateTime createdAt;
+  const ReadingMemoEntry({
+    required this.id,
+    required this.memoId,
+    required this.entryType,
+    required this.content,
+    this.question,
+    this.thinkingStyleName,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['memo_id'] = Variable<int>(memoId);
+    {
+      map['entry_type'] = Variable<int>(
+        $ReadingMemoEntriesTable.$converterentryType.toSql(entryType),
+      );
+    }
+    map['content'] = Variable<String>(content);
+    if (!nullToAbsent || question != null) {
+      map['question'] = Variable<String>(question);
+    }
+    if (!nullToAbsent || thinkingStyleName != null) {
+      map['thinking_style_name'] = Variable<String>(thinkingStyleName);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  ReadingMemoEntriesCompanion toCompanion(bool nullToAbsent) {
+    return ReadingMemoEntriesCompanion(
+      id: Value(id),
+      memoId: Value(memoId),
+      entryType: Value(entryType),
+      content: Value(content),
+      question: question == null && nullToAbsent
+          ? const Value.absent()
+          : Value(question),
+      thinkingStyleName: thinkingStyleName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thinkingStyleName),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ReadingMemoEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReadingMemoEntry(
+      id: serializer.fromJson<int>(json['id']),
+      memoId: serializer.fromJson<int>(json['memoId']),
+      entryType: $ReadingMemoEntriesTable.$converterentryType.fromJson(
+        serializer.fromJson<int>(json['entryType']),
+      ),
+      content: serializer.fromJson<String>(json['content']),
+      question: serializer.fromJson<String?>(json['question']),
+      thinkingStyleName: serializer.fromJson<String?>(
+        json['thinkingStyleName'],
+      ),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'memoId': serializer.toJson<int>(memoId),
+      'entryType': serializer.toJson<int>(
+        $ReadingMemoEntriesTable.$converterentryType.toJson(entryType),
+      ),
+      'content': serializer.toJson<String>(content),
+      'question': serializer.toJson<String?>(question),
+      'thinkingStyleName': serializer.toJson<String?>(thinkingStyleName),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  ReadingMemoEntry copyWith({
+    int? id,
+    int? memoId,
+    MemoEntryType? entryType,
+    String? content,
+    Value<String?> question = const Value.absent(),
+    Value<String?> thinkingStyleName = const Value.absent(),
+    DateTime? createdAt,
+  }) => ReadingMemoEntry(
+    id: id ?? this.id,
+    memoId: memoId ?? this.memoId,
+    entryType: entryType ?? this.entryType,
+    content: content ?? this.content,
+    question: question.present ? question.value : this.question,
+    thinkingStyleName: thinkingStyleName.present
+        ? thinkingStyleName.value
+        : this.thinkingStyleName,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  ReadingMemoEntry copyWithCompanion(ReadingMemoEntriesCompanion data) {
+    return ReadingMemoEntry(
+      id: data.id.present ? data.id.value : this.id,
+      memoId: data.memoId.present ? data.memoId.value : this.memoId,
+      entryType: data.entryType.present ? data.entryType.value : this.entryType,
+      content: data.content.present ? data.content.value : this.content,
+      question: data.question.present ? data.question.value : this.question,
+      thinkingStyleName: data.thinkingStyleName.present
+          ? data.thinkingStyleName.value
+          : this.thinkingStyleName,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadingMemoEntry(')
+          ..write('id: $id, ')
+          ..write('memoId: $memoId, ')
+          ..write('entryType: $entryType, ')
+          ..write('content: $content, ')
+          ..write('question: $question, ')
+          ..write('thinkingStyleName: $thinkingStyleName, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    memoId,
+    entryType,
+    content,
+    question,
+    thinkingStyleName,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReadingMemoEntry &&
+          other.id == this.id &&
+          other.memoId == this.memoId &&
+          other.entryType == this.entryType &&
+          other.content == this.content &&
+          other.question == this.question &&
+          other.thinkingStyleName == this.thinkingStyleName &&
+          other.createdAt == this.createdAt);
+}
+
+class ReadingMemoEntriesCompanion extends UpdateCompanion<ReadingMemoEntry> {
+  final Value<int> id;
+  final Value<int> memoId;
+  final Value<MemoEntryType> entryType;
+  final Value<String> content;
+  final Value<String?> question;
+  final Value<String?> thinkingStyleName;
+  final Value<DateTime> createdAt;
+  const ReadingMemoEntriesCompanion({
+    this.id = const Value.absent(),
+    this.memoId = const Value.absent(),
+    this.entryType = const Value.absent(),
+    this.content = const Value.absent(),
+    this.question = const Value.absent(),
+    this.thinkingStyleName = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  ReadingMemoEntriesCompanion.insert({
+    this.id = const Value.absent(),
+    required int memoId,
+    required MemoEntryType entryType,
+    required String content,
+    this.question = const Value.absent(),
+    this.thinkingStyleName = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : memoId = Value(memoId),
+       entryType = Value(entryType),
+       content = Value(content);
+  static Insertable<ReadingMemoEntry> custom({
+    Expression<int>? id,
+    Expression<int>? memoId,
+    Expression<int>? entryType,
+    Expression<String>? content,
+    Expression<String>? question,
+    Expression<String>? thinkingStyleName,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (memoId != null) 'memo_id': memoId,
+      if (entryType != null) 'entry_type': entryType,
+      if (content != null) 'content': content,
+      if (question != null) 'question': question,
+      if (thinkingStyleName != null) 'thinking_style_name': thinkingStyleName,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  ReadingMemoEntriesCompanion copyWith({
+    Value<int>? id,
+    Value<int>? memoId,
+    Value<MemoEntryType>? entryType,
+    Value<String>? content,
+    Value<String?>? question,
+    Value<String?>? thinkingStyleName,
+    Value<DateTime>? createdAt,
+  }) {
+    return ReadingMemoEntriesCompanion(
+      id: id ?? this.id,
+      memoId: memoId ?? this.memoId,
+      entryType: entryType ?? this.entryType,
+      content: content ?? this.content,
+      question: question ?? this.question,
+      thinkingStyleName: thinkingStyleName ?? this.thinkingStyleName,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (memoId.present) {
+      map['memo_id'] = Variable<int>(memoId.value);
+    }
+    if (entryType.present) {
+      map['entry_type'] = Variable<int>(
+        $ReadingMemoEntriesTable.$converterentryType.toSql(entryType.value),
+      );
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (question.present) {
+      map['question'] = Variable<String>(question.value);
+    }
+    if (thinkingStyleName.present) {
+      map['thinking_style_name'] = Variable<String>(thinkingStyleName.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadingMemoEntriesCompanion(')
+          ..write('id: $id, ')
+          ..write('memoId: $memoId, ')
+          ..write('entryType: $entryType, ')
+          ..write('content: $content, ')
+          ..write('question: $question, ')
+          ..write('thinkingStyleName: $thinkingStyleName, ')
+          ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
@@ -3897,6 +4544,1827 @@ class ReadingReflectionsCompanion extends UpdateCompanion<ReadingReflection> {
           ..write('id: $id, ')
           ..write('bookId: $bookId, ')
           ..write('content: $content, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CodeEntriesTable extends CodeEntries
+    with TableInfo<$CodeEntriesTable, CodeEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CodeEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _codeMeta = const VerificationMeta('code');
+  @override
+  late final GeneratedColumn<String> code = GeneratedColumn<String>(
+    'code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<CodeEntryType, int> entryType =
+      GeneratedColumn<int>(
+        'entry_type',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<CodeEntryType>($CodeEntriesTable.$converterentryType);
+  static const VerificationMeta _languageMeta = const VerificationMeta(
+    'language',
+  );
+  @override
+  late final GeneratedColumn<String> language = GeneratedColumn<String>(
+    'language',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _librariesMeta = const VerificationMeta(
+    'libraries',
+  );
+  @override
+  late final GeneratedColumn<String> libraries = GeneratedColumn<String>(
+    'libraries',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _structureMeta = const VerificationMeta(
+    'structure',
+  );
+  @override
+  late final GeneratedColumn<String> structure = GeneratedColumn<String>(
+    'structure',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _capabilitiesMeta = const VerificationMeta(
+    'capabilities',
+  );
+  @override
+  late final GeneratedColumn<String> capabilities = GeneratedColumn<String>(
+    'capabilities',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _useCasesMeta = const VerificationMeta(
+    'useCases',
+  );
+  @override
+  late final GeneratedColumn<String> useCases = GeneratedColumn<String>(
+    'use_cases',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _learningPointsMeta = const VerificationMeta(
+    'learningPoints',
+  );
+  @override
+  late final GeneratedColumn<String> learningPoints = GeneratedColumn<String>(
+    'learning_points',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _synonymousCodesMeta = const VerificationMeta(
+    'synonymousCodes',
+  );
+  @override
+  late final GeneratedColumn<String> synonymousCodes = GeneratedColumn<String>(
+    'synonymous_codes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _antonymousCodesMeta = const VerificationMeta(
+    'antonymousCodes',
+  );
+  @override
+  late final GeneratedColumn<String> antonymousCodes = GeneratedColumn<String>(
+    'antonymous_codes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _relatedCodesMeta = const VerificationMeta(
+    'relatedCodes',
+  );
+  @override
+  late final GeneratedColumn<String> relatedCodes = GeneratedColumn<String>(
+    'related_codes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _examplesMeta = const VerificationMeta(
+    'examples',
+  );
+  @override
+  late final GeneratedColumn<String> examples = GeneratedColumn<String>(
+    'examples',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cautionsMeta = const VerificationMeta(
+    'cautions',
+  );
+  @override
+  late final GeneratedColumn<String> cautions = GeneratedColumn<String>(
+    'cautions',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _triviaMeta = const VerificationMeta('trivia');
+  @override
+  late final GeneratedColumn<String> trivia = GeneratedColumn<String>(
+    'trivia',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tipsMeta = const VerificationMeta('tips');
+  @override
+  late final GeneratedColumn<String> tips = GeneratedColumn<String>(
+    'tips',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _commonMistakesMeta = const VerificationMeta(
+    'commonMistakes',
+  );
+  @override
+  late final GeneratedColumn<String> commonMistakes = GeneratedColumn<String>(
+    'common_mistakes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _gyaruExplanationMeta = const VerificationMeta(
+    'gyaruExplanation',
+  );
+  @override
+  late final GeneratedColumn<String> gyaruExplanation = GeneratedColumn<String>(
+    'gyaru_explanation',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _kindergartenExplanationMeta =
+      const VerificationMeta('kindergartenExplanation');
+  @override
+  late final GeneratedColumn<String> kindergartenExplanation =
+      GeneratedColumn<String>(
+        'kindergarten_explanation',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _learningLevelMeta = const VerificationMeta(
+    'learningLevel',
+  );
+  @override
+  late final GeneratedColumn<int> learningLevel = GeneratedColumn<int>(
+    'learning_level',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
+  @override
+  late final GeneratedColumn<String> tags = GeneratedColumn<String>(
+    'tags',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _categoryMeta = const VerificationMeta(
+    'category',
+  );
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    title,
+    code,
+    entryType,
+    language,
+    libraries,
+    structure,
+    capabilities,
+    useCases,
+    learningPoints,
+    synonymousCodes,
+    antonymousCodes,
+    relatedCodes,
+    examples,
+    cautions,
+    trivia,
+    tips,
+    commonMistakes,
+    gyaruExplanation,
+    kindergartenExplanation,
+    learningLevel,
+    tags,
+    category,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'code_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CodeEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('code')) {
+      context.handle(
+        _codeMeta,
+        code.isAcceptableOrUnknown(data['code']!, _codeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_codeMeta);
+    }
+    if (data.containsKey('language')) {
+      context.handle(
+        _languageMeta,
+        language.isAcceptableOrUnknown(data['language']!, _languageMeta),
+      );
+    }
+    if (data.containsKey('libraries')) {
+      context.handle(
+        _librariesMeta,
+        libraries.isAcceptableOrUnknown(data['libraries']!, _librariesMeta),
+      );
+    }
+    if (data.containsKey('structure')) {
+      context.handle(
+        _structureMeta,
+        structure.isAcceptableOrUnknown(data['structure']!, _structureMeta),
+      );
+    }
+    if (data.containsKey('capabilities')) {
+      context.handle(
+        _capabilitiesMeta,
+        capabilities.isAcceptableOrUnknown(
+          data['capabilities']!,
+          _capabilitiesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('use_cases')) {
+      context.handle(
+        _useCasesMeta,
+        useCases.isAcceptableOrUnknown(data['use_cases']!, _useCasesMeta),
+      );
+    }
+    if (data.containsKey('learning_points')) {
+      context.handle(
+        _learningPointsMeta,
+        learningPoints.isAcceptableOrUnknown(
+          data['learning_points']!,
+          _learningPointsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('synonymous_codes')) {
+      context.handle(
+        _synonymousCodesMeta,
+        synonymousCodes.isAcceptableOrUnknown(
+          data['synonymous_codes']!,
+          _synonymousCodesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('antonymous_codes')) {
+      context.handle(
+        _antonymousCodesMeta,
+        antonymousCodes.isAcceptableOrUnknown(
+          data['antonymous_codes']!,
+          _antonymousCodesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('related_codes')) {
+      context.handle(
+        _relatedCodesMeta,
+        relatedCodes.isAcceptableOrUnknown(
+          data['related_codes']!,
+          _relatedCodesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('examples')) {
+      context.handle(
+        _examplesMeta,
+        examples.isAcceptableOrUnknown(data['examples']!, _examplesMeta),
+      );
+    }
+    if (data.containsKey('cautions')) {
+      context.handle(
+        _cautionsMeta,
+        cautions.isAcceptableOrUnknown(data['cautions']!, _cautionsMeta),
+      );
+    }
+    if (data.containsKey('trivia')) {
+      context.handle(
+        _triviaMeta,
+        trivia.isAcceptableOrUnknown(data['trivia']!, _triviaMeta),
+      );
+    }
+    if (data.containsKey('tips')) {
+      context.handle(
+        _tipsMeta,
+        tips.isAcceptableOrUnknown(data['tips']!, _tipsMeta),
+      );
+    }
+    if (data.containsKey('common_mistakes')) {
+      context.handle(
+        _commonMistakesMeta,
+        commonMistakes.isAcceptableOrUnknown(
+          data['common_mistakes']!,
+          _commonMistakesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('gyaru_explanation')) {
+      context.handle(
+        _gyaruExplanationMeta,
+        gyaruExplanation.isAcceptableOrUnknown(
+          data['gyaru_explanation']!,
+          _gyaruExplanationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('kindergarten_explanation')) {
+      context.handle(
+        _kindergartenExplanationMeta,
+        kindergartenExplanation.isAcceptableOrUnknown(
+          data['kindergarten_explanation']!,
+          _kindergartenExplanationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('learning_level')) {
+      context.handle(
+        _learningLevelMeta,
+        learningLevel.isAcceptableOrUnknown(
+          data['learning_level']!,
+          _learningLevelMeta,
+        ),
+      );
+    }
+    if (data.containsKey('tags')) {
+      context.handle(
+        _tagsMeta,
+        tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta),
+      );
+    }
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CodeEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CodeEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      code: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}code'],
+      )!,
+      entryType: $CodeEntriesTable.$converterentryType.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}entry_type'],
+        )!,
+      ),
+      language: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language'],
+      ),
+      libraries: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}libraries'],
+      ),
+      structure: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}structure'],
+      ),
+      capabilities: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}capabilities'],
+      ),
+      useCases: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}use_cases'],
+      ),
+      learningPoints: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}learning_points'],
+      ),
+      synonymousCodes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}synonymous_codes'],
+      ),
+      antonymousCodes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}antonymous_codes'],
+      ),
+      relatedCodes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}related_codes'],
+      ),
+      examples: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}examples'],
+      ),
+      cautions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cautions'],
+      ),
+      trivia: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}trivia'],
+      ),
+      tips: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tips'],
+      ),
+      commonMistakes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}common_mistakes'],
+      ),
+      gyaruExplanation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}gyaru_explanation'],
+      ),
+      kindergartenExplanation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kindergarten_explanation'],
+      ),
+      learningLevel: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}learning_level'],
+      ),
+      tags: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tags'],
+      ),
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CodeEntriesTable createAlias(String alias) {
+    return $CodeEntriesTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<CodeEntryType, int, int> $converterentryType =
+      const EnumIndexConverter<CodeEntryType>(CodeEntryType.values);
+}
+
+class CodeEntry extends DataClass implements Insertable<CodeEntry> {
+  final int id;
+  final String title;
+  final String code;
+  final CodeEntryType entryType;
+  final String? language;
+  final String? libraries;
+  final String? structure;
+  final String? capabilities;
+  final String? useCases;
+  final String? learningPoints;
+  final String? synonymousCodes;
+  final String? antonymousCodes;
+  final String? relatedCodes;
+  final String? examples;
+  final String? cautions;
+  final String? trivia;
+  final String? tips;
+  final String? commonMistakes;
+  final String? gyaruExplanation;
+  final String? kindergartenExplanation;
+  final int? learningLevel;
+  final String? tags;
+  final String? category;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const CodeEntry({
+    required this.id,
+    required this.title,
+    required this.code,
+    required this.entryType,
+    this.language,
+    this.libraries,
+    this.structure,
+    this.capabilities,
+    this.useCases,
+    this.learningPoints,
+    this.synonymousCodes,
+    this.antonymousCodes,
+    this.relatedCodes,
+    this.examples,
+    this.cautions,
+    this.trivia,
+    this.tips,
+    this.commonMistakes,
+    this.gyaruExplanation,
+    this.kindergartenExplanation,
+    this.learningLevel,
+    this.tags,
+    this.category,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['title'] = Variable<String>(title);
+    map['code'] = Variable<String>(code);
+    {
+      map['entry_type'] = Variable<int>(
+        $CodeEntriesTable.$converterentryType.toSql(entryType),
+      );
+    }
+    if (!nullToAbsent || language != null) {
+      map['language'] = Variable<String>(language);
+    }
+    if (!nullToAbsent || libraries != null) {
+      map['libraries'] = Variable<String>(libraries);
+    }
+    if (!nullToAbsent || structure != null) {
+      map['structure'] = Variable<String>(structure);
+    }
+    if (!nullToAbsent || capabilities != null) {
+      map['capabilities'] = Variable<String>(capabilities);
+    }
+    if (!nullToAbsent || useCases != null) {
+      map['use_cases'] = Variable<String>(useCases);
+    }
+    if (!nullToAbsent || learningPoints != null) {
+      map['learning_points'] = Variable<String>(learningPoints);
+    }
+    if (!nullToAbsent || synonymousCodes != null) {
+      map['synonymous_codes'] = Variable<String>(synonymousCodes);
+    }
+    if (!nullToAbsent || antonymousCodes != null) {
+      map['antonymous_codes'] = Variable<String>(antonymousCodes);
+    }
+    if (!nullToAbsent || relatedCodes != null) {
+      map['related_codes'] = Variable<String>(relatedCodes);
+    }
+    if (!nullToAbsent || examples != null) {
+      map['examples'] = Variable<String>(examples);
+    }
+    if (!nullToAbsent || cautions != null) {
+      map['cautions'] = Variable<String>(cautions);
+    }
+    if (!nullToAbsent || trivia != null) {
+      map['trivia'] = Variable<String>(trivia);
+    }
+    if (!nullToAbsent || tips != null) {
+      map['tips'] = Variable<String>(tips);
+    }
+    if (!nullToAbsent || commonMistakes != null) {
+      map['common_mistakes'] = Variable<String>(commonMistakes);
+    }
+    if (!nullToAbsent || gyaruExplanation != null) {
+      map['gyaru_explanation'] = Variable<String>(gyaruExplanation);
+    }
+    if (!nullToAbsent || kindergartenExplanation != null) {
+      map['kindergarten_explanation'] = Variable<String>(
+        kindergartenExplanation,
+      );
+    }
+    if (!nullToAbsent || learningLevel != null) {
+      map['learning_level'] = Variable<int>(learningLevel);
+    }
+    if (!nullToAbsent || tags != null) {
+      map['tags'] = Variable<String>(tags);
+    }
+    if (!nullToAbsent || category != null) {
+      map['category'] = Variable<String>(category);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  CodeEntriesCompanion toCompanion(bool nullToAbsent) {
+    return CodeEntriesCompanion(
+      id: Value(id),
+      title: Value(title),
+      code: Value(code),
+      entryType: Value(entryType),
+      language: language == null && nullToAbsent
+          ? const Value.absent()
+          : Value(language),
+      libraries: libraries == null && nullToAbsent
+          ? const Value.absent()
+          : Value(libraries),
+      structure: structure == null && nullToAbsent
+          ? const Value.absent()
+          : Value(structure),
+      capabilities: capabilities == null && nullToAbsent
+          ? const Value.absent()
+          : Value(capabilities),
+      useCases: useCases == null && nullToAbsent
+          ? const Value.absent()
+          : Value(useCases),
+      learningPoints: learningPoints == null && nullToAbsent
+          ? const Value.absent()
+          : Value(learningPoints),
+      synonymousCodes: synonymousCodes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(synonymousCodes),
+      antonymousCodes: antonymousCodes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(antonymousCodes),
+      relatedCodes: relatedCodes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(relatedCodes),
+      examples: examples == null && nullToAbsent
+          ? const Value.absent()
+          : Value(examples),
+      cautions: cautions == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cautions),
+      trivia: trivia == null && nullToAbsent
+          ? const Value.absent()
+          : Value(trivia),
+      tips: tips == null && nullToAbsent ? const Value.absent() : Value(tips),
+      commonMistakes: commonMistakes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(commonMistakes),
+      gyaruExplanation: gyaruExplanation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(gyaruExplanation),
+      kindergartenExplanation: kindergartenExplanation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(kindergartenExplanation),
+      learningLevel: learningLevel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(learningLevel),
+      tags: tags == null && nullToAbsent ? const Value.absent() : Value(tags),
+      category: category == null && nullToAbsent
+          ? const Value.absent()
+          : Value(category),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory CodeEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CodeEntry(
+      id: serializer.fromJson<int>(json['id']),
+      title: serializer.fromJson<String>(json['title']),
+      code: serializer.fromJson<String>(json['code']),
+      entryType: $CodeEntriesTable.$converterentryType.fromJson(
+        serializer.fromJson<int>(json['entryType']),
+      ),
+      language: serializer.fromJson<String?>(json['language']),
+      libraries: serializer.fromJson<String?>(json['libraries']),
+      structure: serializer.fromJson<String?>(json['structure']),
+      capabilities: serializer.fromJson<String?>(json['capabilities']),
+      useCases: serializer.fromJson<String?>(json['useCases']),
+      learningPoints: serializer.fromJson<String?>(json['learningPoints']),
+      synonymousCodes: serializer.fromJson<String?>(json['synonymousCodes']),
+      antonymousCodes: serializer.fromJson<String?>(json['antonymousCodes']),
+      relatedCodes: serializer.fromJson<String?>(json['relatedCodes']),
+      examples: serializer.fromJson<String?>(json['examples']),
+      cautions: serializer.fromJson<String?>(json['cautions']),
+      trivia: serializer.fromJson<String?>(json['trivia']),
+      tips: serializer.fromJson<String?>(json['tips']),
+      commonMistakes: serializer.fromJson<String?>(json['commonMistakes']),
+      gyaruExplanation: serializer.fromJson<String?>(json['gyaruExplanation']),
+      kindergartenExplanation: serializer.fromJson<String?>(
+        json['kindergartenExplanation'],
+      ),
+      learningLevel: serializer.fromJson<int?>(json['learningLevel']),
+      tags: serializer.fromJson<String?>(json['tags']),
+      category: serializer.fromJson<String?>(json['category']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'title': serializer.toJson<String>(title),
+      'code': serializer.toJson<String>(code),
+      'entryType': serializer.toJson<int>(
+        $CodeEntriesTable.$converterentryType.toJson(entryType),
+      ),
+      'language': serializer.toJson<String?>(language),
+      'libraries': serializer.toJson<String?>(libraries),
+      'structure': serializer.toJson<String?>(structure),
+      'capabilities': serializer.toJson<String?>(capabilities),
+      'useCases': serializer.toJson<String?>(useCases),
+      'learningPoints': serializer.toJson<String?>(learningPoints),
+      'synonymousCodes': serializer.toJson<String?>(synonymousCodes),
+      'antonymousCodes': serializer.toJson<String?>(antonymousCodes),
+      'relatedCodes': serializer.toJson<String?>(relatedCodes),
+      'examples': serializer.toJson<String?>(examples),
+      'cautions': serializer.toJson<String?>(cautions),
+      'trivia': serializer.toJson<String?>(trivia),
+      'tips': serializer.toJson<String?>(tips),
+      'commonMistakes': serializer.toJson<String?>(commonMistakes),
+      'gyaruExplanation': serializer.toJson<String?>(gyaruExplanation),
+      'kindergartenExplanation': serializer.toJson<String?>(
+        kindergartenExplanation,
+      ),
+      'learningLevel': serializer.toJson<int?>(learningLevel),
+      'tags': serializer.toJson<String?>(tags),
+      'category': serializer.toJson<String?>(category),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  CodeEntry copyWith({
+    int? id,
+    String? title,
+    String? code,
+    CodeEntryType? entryType,
+    Value<String?> language = const Value.absent(),
+    Value<String?> libraries = const Value.absent(),
+    Value<String?> structure = const Value.absent(),
+    Value<String?> capabilities = const Value.absent(),
+    Value<String?> useCases = const Value.absent(),
+    Value<String?> learningPoints = const Value.absent(),
+    Value<String?> synonymousCodes = const Value.absent(),
+    Value<String?> antonymousCodes = const Value.absent(),
+    Value<String?> relatedCodes = const Value.absent(),
+    Value<String?> examples = const Value.absent(),
+    Value<String?> cautions = const Value.absent(),
+    Value<String?> trivia = const Value.absent(),
+    Value<String?> tips = const Value.absent(),
+    Value<String?> commonMistakes = const Value.absent(),
+    Value<String?> gyaruExplanation = const Value.absent(),
+    Value<String?> kindergartenExplanation = const Value.absent(),
+    Value<int?> learningLevel = const Value.absent(),
+    Value<String?> tags = const Value.absent(),
+    Value<String?> category = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => CodeEntry(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    code: code ?? this.code,
+    entryType: entryType ?? this.entryType,
+    language: language.present ? language.value : this.language,
+    libraries: libraries.present ? libraries.value : this.libraries,
+    structure: structure.present ? structure.value : this.structure,
+    capabilities: capabilities.present ? capabilities.value : this.capabilities,
+    useCases: useCases.present ? useCases.value : this.useCases,
+    learningPoints: learningPoints.present
+        ? learningPoints.value
+        : this.learningPoints,
+    synonymousCodes: synonymousCodes.present
+        ? synonymousCodes.value
+        : this.synonymousCodes,
+    antonymousCodes: antonymousCodes.present
+        ? antonymousCodes.value
+        : this.antonymousCodes,
+    relatedCodes: relatedCodes.present ? relatedCodes.value : this.relatedCodes,
+    examples: examples.present ? examples.value : this.examples,
+    cautions: cautions.present ? cautions.value : this.cautions,
+    trivia: trivia.present ? trivia.value : this.trivia,
+    tips: tips.present ? tips.value : this.tips,
+    commonMistakes: commonMistakes.present
+        ? commonMistakes.value
+        : this.commonMistakes,
+    gyaruExplanation: gyaruExplanation.present
+        ? gyaruExplanation.value
+        : this.gyaruExplanation,
+    kindergartenExplanation: kindergartenExplanation.present
+        ? kindergartenExplanation.value
+        : this.kindergartenExplanation,
+    learningLevel: learningLevel.present
+        ? learningLevel.value
+        : this.learningLevel,
+    tags: tags.present ? tags.value : this.tags,
+    category: category.present ? category.value : this.category,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  CodeEntry copyWithCompanion(CodeEntriesCompanion data) {
+    return CodeEntry(
+      id: data.id.present ? data.id.value : this.id,
+      title: data.title.present ? data.title.value : this.title,
+      code: data.code.present ? data.code.value : this.code,
+      entryType: data.entryType.present ? data.entryType.value : this.entryType,
+      language: data.language.present ? data.language.value : this.language,
+      libraries: data.libraries.present ? data.libraries.value : this.libraries,
+      structure: data.structure.present ? data.structure.value : this.structure,
+      capabilities: data.capabilities.present
+          ? data.capabilities.value
+          : this.capabilities,
+      useCases: data.useCases.present ? data.useCases.value : this.useCases,
+      learningPoints: data.learningPoints.present
+          ? data.learningPoints.value
+          : this.learningPoints,
+      synonymousCodes: data.synonymousCodes.present
+          ? data.synonymousCodes.value
+          : this.synonymousCodes,
+      antonymousCodes: data.antonymousCodes.present
+          ? data.antonymousCodes.value
+          : this.antonymousCodes,
+      relatedCodes: data.relatedCodes.present
+          ? data.relatedCodes.value
+          : this.relatedCodes,
+      examples: data.examples.present ? data.examples.value : this.examples,
+      cautions: data.cautions.present ? data.cautions.value : this.cautions,
+      trivia: data.trivia.present ? data.trivia.value : this.trivia,
+      tips: data.tips.present ? data.tips.value : this.tips,
+      commonMistakes: data.commonMistakes.present
+          ? data.commonMistakes.value
+          : this.commonMistakes,
+      gyaruExplanation: data.gyaruExplanation.present
+          ? data.gyaruExplanation.value
+          : this.gyaruExplanation,
+      kindergartenExplanation: data.kindergartenExplanation.present
+          ? data.kindergartenExplanation.value
+          : this.kindergartenExplanation,
+      learningLevel: data.learningLevel.present
+          ? data.learningLevel.value
+          : this.learningLevel,
+      tags: data.tags.present ? data.tags.value : this.tags,
+      category: data.category.present ? data.category.value : this.category,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CodeEntry(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('code: $code, ')
+          ..write('entryType: $entryType, ')
+          ..write('language: $language, ')
+          ..write('libraries: $libraries, ')
+          ..write('structure: $structure, ')
+          ..write('capabilities: $capabilities, ')
+          ..write('useCases: $useCases, ')
+          ..write('learningPoints: $learningPoints, ')
+          ..write('synonymousCodes: $synonymousCodes, ')
+          ..write('antonymousCodes: $antonymousCodes, ')
+          ..write('relatedCodes: $relatedCodes, ')
+          ..write('examples: $examples, ')
+          ..write('cautions: $cautions, ')
+          ..write('trivia: $trivia, ')
+          ..write('tips: $tips, ')
+          ..write('commonMistakes: $commonMistakes, ')
+          ..write('gyaruExplanation: $gyaruExplanation, ')
+          ..write('kindergartenExplanation: $kindergartenExplanation, ')
+          ..write('learningLevel: $learningLevel, ')
+          ..write('tags: $tags, ')
+          ..write('category: $category, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    title,
+    code,
+    entryType,
+    language,
+    libraries,
+    structure,
+    capabilities,
+    useCases,
+    learningPoints,
+    synonymousCodes,
+    antonymousCodes,
+    relatedCodes,
+    examples,
+    cautions,
+    trivia,
+    tips,
+    commonMistakes,
+    gyaruExplanation,
+    kindergartenExplanation,
+    learningLevel,
+    tags,
+    category,
+    createdAt,
+    updatedAt,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CodeEntry &&
+          other.id == this.id &&
+          other.title == this.title &&
+          other.code == this.code &&
+          other.entryType == this.entryType &&
+          other.language == this.language &&
+          other.libraries == this.libraries &&
+          other.structure == this.structure &&
+          other.capabilities == this.capabilities &&
+          other.useCases == this.useCases &&
+          other.learningPoints == this.learningPoints &&
+          other.synonymousCodes == this.synonymousCodes &&
+          other.antonymousCodes == this.antonymousCodes &&
+          other.relatedCodes == this.relatedCodes &&
+          other.examples == this.examples &&
+          other.cautions == this.cautions &&
+          other.trivia == this.trivia &&
+          other.tips == this.tips &&
+          other.commonMistakes == this.commonMistakes &&
+          other.gyaruExplanation == this.gyaruExplanation &&
+          other.kindergartenExplanation == this.kindergartenExplanation &&
+          other.learningLevel == this.learningLevel &&
+          other.tags == this.tags &&
+          other.category == this.category &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class CodeEntriesCompanion extends UpdateCompanion<CodeEntry> {
+  final Value<int> id;
+  final Value<String> title;
+  final Value<String> code;
+  final Value<CodeEntryType> entryType;
+  final Value<String?> language;
+  final Value<String?> libraries;
+  final Value<String?> structure;
+  final Value<String?> capabilities;
+  final Value<String?> useCases;
+  final Value<String?> learningPoints;
+  final Value<String?> synonymousCodes;
+  final Value<String?> antonymousCodes;
+  final Value<String?> relatedCodes;
+  final Value<String?> examples;
+  final Value<String?> cautions;
+  final Value<String?> trivia;
+  final Value<String?> tips;
+  final Value<String?> commonMistakes;
+  final Value<String?> gyaruExplanation;
+  final Value<String?> kindergartenExplanation;
+  final Value<int?> learningLevel;
+  final Value<String?> tags;
+  final Value<String?> category;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  const CodeEntriesCompanion({
+    this.id = const Value.absent(),
+    this.title = const Value.absent(),
+    this.code = const Value.absent(),
+    this.entryType = const Value.absent(),
+    this.language = const Value.absent(),
+    this.libraries = const Value.absent(),
+    this.structure = const Value.absent(),
+    this.capabilities = const Value.absent(),
+    this.useCases = const Value.absent(),
+    this.learningPoints = const Value.absent(),
+    this.synonymousCodes = const Value.absent(),
+    this.antonymousCodes = const Value.absent(),
+    this.relatedCodes = const Value.absent(),
+    this.examples = const Value.absent(),
+    this.cautions = const Value.absent(),
+    this.trivia = const Value.absent(),
+    this.tips = const Value.absent(),
+    this.commonMistakes = const Value.absent(),
+    this.gyaruExplanation = const Value.absent(),
+    this.kindergartenExplanation = const Value.absent(),
+    this.learningLevel = const Value.absent(),
+    this.tags = const Value.absent(),
+    this.category = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  CodeEntriesCompanion.insert({
+    this.id = const Value.absent(),
+    required String title,
+    required String code,
+    required CodeEntryType entryType,
+    this.language = const Value.absent(),
+    this.libraries = const Value.absent(),
+    this.structure = const Value.absent(),
+    this.capabilities = const Value.absent(),
+    this.useCases = const Value.absent(),
+    this.learningPoints = const Value.absent(),
+    this.synonymousCodes = const Value.absent(),
+    this.antonymousCodes = const Value.absent(),
+    this.relatedCodes = const Value.absent(),
+    this.examples = const Value.absent(),
+    this.cautions = const Value.absent(),
+    this.trivia = const Value.absent(),
+    this.tips = const Value.absent(),
+    this.commonMistakes = const Value.absent(),
+    this.gyaruExplanation = const Value.absent(),
+    this.kindergartenExplanation = const Value.absent(),
+    this.learningLevel = const Value.absent(),
+    this.tags = const Value.absent(),
+    this.category = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  }) : title = Value(title),
+       code = Value(code),
+       entryType = Value(entryType);
+  static Insertable<CodeEntry> custom({
+    Expression<int>? id,
+    Expression<String>? title,
+    Expression<String>? code,
+    Expression<int>? entryType,
+    Expression<String>? language,
+    Expression<String>? libraries,
+    Expression<String>? structure,
+    Expression<String>? capabilities,
+    Expression<String>? useCases,
+    Expression<String>? learningPoints,
+    Expression<String>? synonymousCodes,
+    Expression<String>? antonymousCodes,
+    Expression<String>? relatedCodes,
+    Expression<String>? examples,
+    Expression<String>? cautions,
+    Expression<String>? trivia,
+    Expression<String>? tips,
+    Expression<String>? commonMistakes,
+    Expression<String>? gyaruExplanation,
+    Expression<String>? kindergartenExplanation,
+    Expression<int>? learningLevel,
+    Expression<String>? tags,
+    Expression<String>? category,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (title != null) 'title': title,
+      if (code != null) 'code': code,
+      if (entryType != null) 'entry_type': entryType,
+      if (language != null) 'language': language,
+      if (libraries != null) 'libraries': libraries,
+      if (structure != null) 'structure': structure,
+      if (capabilities != null) 'capabilities': capabilities,
+      if (useCases != null) 'use_cases': useCases,
+      if (learningPoints != null) 'learning_points': learningPoints,
+      if (synonymousCodes != null) 'synonymous_codes': synonymousCodes,
+      if (antonymousCodes != null) 'antonymous_codes': antonymousCodes,
+      if (relatedCodes != null) 'related_codes': relatedCodes,
+      if (examples != null) 'examples': examples,
+      if (cautions != null) 'cautions': cautions,
+      if (trivia != null) 'trivia': trivia,
+      if (tips != null) 'tips': tips,
+      if (commonMistakes != null) 'common_mistakes': commonMistakes,
+      if (gyaruExplanation != null) 'gyaru_explanation': gyaruExplanation,
+      if (kindergartenExplanation != null)
+        'kindergarten_explanation': kindergartenExplanation,
+      if (learningLevel != null) 'learning_level': learningLevel,
+      if (tags != null) 'tags': tags,
+      if (category != null) 'category': category,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  CodeEntriesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? title,
+    Value<String>? code,
+    Value<CodeEntryType>? entryType,
+    Value<String?>? language,
+    Value<String?>? libraries,
+    Value<String?>? structure,
+    Value<String?>? capabilities,
+    Value<String?>? useCases,
+    Value<String?>? learningPoints,
+    Value<String?>? synonymousCodes,
+    Value<String?>? antonymousCodes,
+    Value<String?>? relatedCodes,
+    Value<String?>? examples,
+    Value<String?>? cautions,
+    Value<String?>? trivia,
+    Value<String?>? tips,
+    Value<String?>? commonMistakes,
+    Value<String?>? gyaruExplanation,
+    Value<String?>? kindergartenExplanation,
+    Value<int?>? learningLevel,
+    Value<String?>? tags,
+    Value<String?>? category,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+  }) {
+    return CodeEntriesCompanion(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      code: code ?? this.code,
+      entryType: entryType ?? this.entryType,
+      language: language ?? this.language,
+      libraries: libraries ?? this.libraries,
+      structure: structure ?? this.structure,
+      capabilities: capabilities ?? this.capabilities,
+      useCases: useCases ?? this.useCases,
+      learningPoints: learningPoints ?? this.learningPoints,
+      synonymousCodes: synonymousCodes ?? this.synonymousCodes,
+      antonymousCodes: antonymousCodes ?? this.antonymousCodes,
+      relatedCodes: relatedCodes ?? this.relatedCodes,
+      examples: examples ?? this.examples,
+      cautions: cautions ?? this.cautions,
+      trivia: trivia ?? this.trivia,
+      tips: tips ?? this.tips,
+      commonMistakes: commonMistakes ?? this.commonMistakes,
+      gyaruExplanation: gyaruExplanation ?? this.gyaruExplanation,
+      kindergartenExplanation:
+          kindergartenExplanation ?? this.kindergartenExplanation,
+      learningLevel: learningLevel ?? this.learningLevel,
+      tags: tags ?? this.tags,
+      category: category ?? this.category,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (code.present) {
+      map['code'] = Variable<String>(code.value);
+    }
+    if (entryType.present) {
+      map['entry_type'] = Variable<int>(
+        $CodeEntriesTable.$converterentryType.toSql(entryType.value),
+      );
+    }
+    if (language.present) {
+      map['language'] = Variable<String>(language.value);
+    }
+    if (libraries.present) {
+      map['libraries'] = Variable<String>(libraries.value);
+    }
+    if (structure.present) {
+      map['structure'] = Variable<String>(structure.value);
+    }
+    if (capabilities.present) {
+      map['capabilities'] = Variable<String>(capabilities.value);
+    }
+    if (useCases.present) {
+      map['use_cases'] = Variable<String>(useCases.value);
+    }
+    if (learningPoints.present) {
+      map['learning_points'] = Variable<String>(learningPoints.value);
+    }
+    if (synonymousCodes.present) {
+      map['synonymous_codes'] = Variable<String>(synonymousCodes.value);
+    }
+    if (antonymousCodes.present) {
+      map['antonymous_codes'] = Variable<String>(antonymousCodes.value);
+    }
+    if (relatedCodes.present) {
+      map['related_codes'] = Variable<String>(relatedCodes.value);
+    }
+    if (examples.present) {
+      map['examples'] = Variable<String>(examples.value);
+    }
+    if (cautions.present) {
+      map['cautions'] = Variable<String>(cautions.value);
+    }
+    if (trivia.present) {
+      map['trivia'] = Variable<String>(trivia.value);
+    }
+    if (tips.present) {
+      map['tips'] = Variable<String>(tips.value);
+    }
+    if (commonMistakes.present) {
+      map['common_mistakes'] = Variable<String>(commonMistakes.value);
+    }
+    if (gyaruExplanation.present) {
+      map['gyaru_explanation'] = Variable<String>(gyaruExplanation.value);
+    }
+    if (kindergartenExplanation.present) {
+      map['kindergarten_explanation'] = Variable<String>(
+        kindergartenExplanation.value,
+      );
+    }
+    if (learningLevel.present) {
+      map['learning_level'] = Variable<int>(learningLevel.value);
+    }
+    if (tags.present) {
+      map['tags'] = Variable<String>(tags.value);
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CodeEntriesCompanion(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('code: $code, ')
+          ..write('entryType: $entryType, ')
+          ..write('language: $language, ')
+          ..write('libraries: $libraries, ')
+          ..write('structure: $structure, ')
+          ..write('capabilities: $capabilities, ')
+          ..write('useCases: $useCases, ')
+          ..write('learningPoints: $learningPoints, ')
+          ..write('synonymousCodes: $synonymousCodes, ')
+          ..write('antonymousCodes: $antonymousCodes, ')
+          ..write('relatedCodes: $relatedCodes, ')
+          ..write('examples: $examples, ')
+          ..write('cautions: $cautions, ')
+          ..write('trivia: $trivia, ')
+          ..write('tips: $tips, ')
+          ..write('commonMistakes: $commonMistakes, ')
+          ..write('gyaruExplanation: $gyaruExplanation, ')
+          ..write('kindergartenExplanation: $kindergartenExplanation, ')
+          ..write('learningLevel: $learningLevel, ')
+          ..write('tags: $tags, ')
+          ..write('category: $category, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CodeEntryEntriesTable extends CodeEntryEntries
+    with TableInfo<$CodeEntryEntriesTable, CodeEntryEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CodeEntryEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _codeEntryIdMeta = const VerificationMeta(
+    'codeEntryId',
+  );
+  @override
+  late final GeneratedColumn<int> codeEntryId = GeneratedColumn<int>(
+    'code_entry_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<CodeEntryEntryType, int>
+  entryType =
+      GeneratedColumn<int>(
+        'entry_type',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<CodeEntryEntryType>(
+        $CodeEntryEntriesTable.$converterentryType,
+      );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _thinkingStyleNameMeta = const VerificationMeta(
+    'thinkingStyleName',
+  );
+  @override
+  late final GeneratedColumn<String> thinkingStyleName =
+      GeneratedColumn<String>(
+        'thinking_style_name',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    codeEntryId,
+    entryType,
+    content,
+    thinkingStyleName,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'code_entry_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CodeEntryEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('code_entry_id')) {
+      context.handle(
+        _codeEntryIdMeta,
+        codeEntryId.isAcceptableOrUnknown(
+          data['code_entry_id']!,
+          _codeEntryIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_codeEntryIdMeta);
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('thinking_style_name')) {
+      context.handle(
+        _thinkingStyleNameMeta,
+        thinkingStyleName.isAcceptableOrUnknown(
+          data['thinking_style_name']!,
+          _thinkingStyleNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CodeEntryEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CodeEntryEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      codeEntryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}code_entry_id'],
+      )!,
+      entryType: $CodeEntryEntriesTable.$converterentryType.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}entry_type'],
+        )!,
+      ),
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      thinkingStyleName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}thinking_style_name'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CodeEntryEntriesTable createAlias(String alias) {
+    return $CodeEntryEntriesTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<CodeEntryEntryType, int, int> $converterentryType =
+      const EnumIndexConverter<CodeEntryEntryType>(CodeEntryEntryType.values);
+}
+
+class CodeEntryEntry extends DataClass implements Insertable<CodeEntryEntry> {
+  final int id;
+  final int codeEntryId;
+  final CodeEntryEntryType entryType;
+  final String content;
+  final String? thinkingStyleName;
+  final DateTime createdAt;
+  const CodeEntryEntry({
+    required this.id,
+    required this.codeEntryId,
+    required this.entryType,
+    required this.content,
+    this.thinkingStyleName,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['code_entry_id'] = Variable<int>(codeEntryId);
+    {
+      map['entry_type'] = Variable<int>(
+        $CodeEntryEntriesTable.$converterentryType.toSql(entryType),
+      );
+    }
+    map['content'] = Variable<String>(content);
+    if (!nullToAbsent || thinkingStyleName != null) {
+      map['thinking_style_name'] = Variable<String>(thinkingStyleName);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  CodeEntryEntriesCompanion toCompanion(bool nullToAbsent) {
+    return CodeEntryEntriesCompanion(
+      id: Value(id),
+      codeEntryId: Value(codeEntryId),
+      entryType: Value(entryType),
+      content: Value(content),
+      thinkingStyleName: thinkingStyleName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thinkingStyleName),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory CodeEntryEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CodeEntryEntry(
+      id: serializer.fromJson<int>(json['id']),
+      codeEntryId: serializer.fromJson<int>(json['codeEntryId']),
+      entryType: $CodeEntryEntriesTable.$converterentryType.fromJson(
+        serializer.fromJson<int>(json['entryType']),
+      ),
+      content: serializer.fromJson<String>(json['content']),
+      thinkingStyleName: serializer.fromJson<String?>(
+        json['thinkingStyleName'],
+      ),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'codeEntryId': serializer.toJson<int>(codeEntryId),
+      'entryType': serializer.toJson<int>(
+        $CodeEntryEntriesTable.$converterentryType.toJson(entryType),
+      ),
+      'content': serializer.toJson<String>(content),
+      'thinkingStyleName': serializer.toJson<String?>(thinkingStyleName),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  CodeEntryEntry copyWith({
+    int? id,
+    int? codeEntryId,
+    CodeEntryEntryType? entryType,
+    String? content,
+    Value<String?> thinkingStyleName = const Value.absent(),
+    DateTime? createdAt,
+  }) => CodeEntryEntry(
+    id: id ?? this.id,
+    codeEntryId: codeEntryId ?? this.codeEntryId,
+    entryType: entryType ?? this.entryType,
+    content: content ?? this.content,
+    thinkingStyleName: thinkingStyleName.present
+        ? thinkingStyleName.value
+        : this.thinkingStyleName,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  CodeEntryEntry copyWithCompanion(CodeEntryEntriesCompanion data) {
+    return CodeEntryEntry(
+      id: data.id.present ? data.id.value : this.id,
+      codeEntryId: data.codeEntryId.present
+          ? data.codeEntryId.value
+          : this.codeEntryId,
+      entryType: data.entryType.present ? data.entryType.value : this.entryType,
+      content: data.content.present ? data.content.value : this.content,
+      thinkingStyleName: data.thinkingStyleName.present
+          ? data.thinkingStyleName.value
+          : this.thinkingStyleName,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CodeEntryEntry(')
+          ..write('id: $id, ')
+          ..write('codeEntryId: $codeEntryId, ')
+          ..write('entryType: $entryType, ')
+          ..write('content: $content, ')
+          ..write('thinkingStyleName: $thinkingStyleName, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    codeEntryId,
+    entryType,
+    content,
+    thinkingStyleName,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CodeEntryEntry &&
+          other.id == this.id &&
+          other.codeEntryId == this.codeEntryId &&
+          other.entryType == this.entryType &&
+          other.content == this.content &&
+          other.thinkingStyleName == this.thinkingStyleName &&
+          other.createdAt == this.createdAt);
+}
+
+class CodeEntryEntriesCompanion extends UpdateCompanion<CodeEntryEntry> {
+  final Value<int> id;
+  final Value<int> codeEntryId;
+  final Value<CodeEntryEntryType> entryType;
+  final Value<String> content;
+  final Value<String?> thinkingStyleName;
+  final Value<DateTime> createdAt;
+  const CodeEntryEntriesCompanion({
+    this.id = const Value.absent(),
+    this.codeEntryId = const Value.absent(),
+    this.entryType = const Value.absent(),
+    this.content = const Value.absent(),
+    this.thinkingStyleName = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  CodeEntryEntriesCompanion.insert({
+    this.id = const Value.absent(),
+    required int codeEntryId,
+    required CodeEntryEntryType entryType,
+    required String content,
+    this.thinkingStyleName = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : codeEntryId = Value(codeEntryId),
+       entryType = Value(entryType),
+       content = Value(content);
+  static Insertable<CodeEntryEntry> custom({
+    Expression<int>? id,
+    Expression<int>? codeEntryId,
+    Expression<int>? entryType,
+    Expression<String>? content,
+    Expression<String>? thinkingStyleName,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (codeEntryId != null) 'code_entry_id': codeEntryId,
+      if (entryType != null) 'entry_type': entryType,
+      if (content != null) 'content': content,
+      if (thinkingStyleName != null) 'thinking_style_name': thinkingStyleName,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  CodeEntryEntriesCompanion copyWith({
+    Value<int>? id,
+    Value<int>? codeEntryId,
+    Value<CodeEntryEntryType>? entryType,
+    Value<String>? content,
+    Value<String?>? thinkingStyleName,
+    Value<DateTime>? createdAt,
+  }) {
+    return CodeEntryEntriesCompanion(
+      id: id ?? this.id,
+      codeEntryId: codeEntryId ?? this.codeEntryId,
+      entryType: entryType ?? this.entryType,
+      content: content ?? this.content,
+      thinkingStyleName: thinkingStyleName ?? this.thinkingStyleName,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (codeEntryId.present) {
+      map['code_entry_id'] = Variable<int>(codeEntryId.value);
+    }
+    if (entryType.present) {
+      map['entry_type'] = Variable<int>(
+        $CodeEntryEntriesTable.$converterentryType.toSql(entryType.value),
+      );
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (thinkingStyleName.present) {
+      map['thinking_style_name'] = Variable<String>(thinkingStyleName.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CodeEntryEntriesCompanion(')
+          ..write('id: $id, ')
+          ..write('codeEntryId: $codeEntryId, ')
+          ..write('entryType: $entryType, ')
+          ..write('content: $content, ')
+          ..write('thinkingStyleName: $thinkingStyleName, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -5843,6 +8311,476 @@ class DailyMemosCompanion extends UpdateCompanion<DailyMemo> {
           ..write('tags: $tags, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $DailyMemoEntriesTable extends DailyMemoEntries
+    with TableInfo<$DailyMemoEntriesTable, DailyMemoEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DailyMemoEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _memoIdMeta = const VerificationMeta('memoId');
+  @override
+  late final GeneratedColumn<int> memoId = GeneratedColumn<int>(
+    'memo_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DailyMemoEntryType, int>
+  entryType =
+      GeneratedColumn<int>(
+        'entry_type',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DailyMemoEntryType>(
+        $DailyMemoEntriesTable.$converterentryType,
+      );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _questionMeta = const VerificationMeta(
+    'question',
+  );
+  @override
+  late final GeneratedColumn<String> question = GeneratedColumn<String>(
+    'question',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _thinkingStyleNameMeta = const VerificationMeta(
+    'thinkingStyleName',
+  );
+  @override
+  late final GeneratedColumn<String> thinkingStyleName =
+      GeneratedColumn<String>(
+        'thinking_style_name',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    memoId,
+    entryType,
+    content,
+    question,
+    thinkingStyleName,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'daily_memo_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DailyMemoEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('memo_id')) {
+      context.handle(
+        _memoIdMeta,
+        memoId.isAcceptableOrUnknown(data['memo_id']!, _memoIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_memoIdMeta);
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('question')) {
+      context.handle(
+        _questionMeta,
+        question.isAcceptableOrUnknown(data['question']!, _questionMeta),
+      );
+    }
+    if (data.containsKey('thinking_style_name')) {
+      context.handle(
+        _thinkingStyleNameMeta,
+        thinkingStyleName.isAcceptableOrUnknown(
+          data['thinking_style_name']!,
+          _thinkingStyleNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DailyMemoEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DailyMemoEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      memoId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}memo_id'],
+      )!,
+      entryType: $DailyMemoEntriesTable.$converterentryType.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}entry_type'],
+        )!,
+      ),
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      question: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}question'],
+      ),
+      thinkingStyleName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}thinking_style_name'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $DailyMemoEntriesTable createAlias(String alias) {
+    return $DailyMemoEntriesTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<DailyMemoEntryType, int, int> $converterentryType =
+      const EnumIndexConverter<DailyMemoEntryType>(DailyMemoEntryType.values);
+}
+
+class DailyMemoEntry extends DataClass implements Insertable<DailyMemoEntry> {
+  final int id;
+  final int memoId;
+  final DailyMemoEntryType entryType;
+  final String content;
+  final String? question;
+  final String? thinkingStyleName;
+  final DateTime createdAt;
+  const DailyMemoEntry({
+    required this.id,
+    required this.memoId,
+    required this.entryType,
+    required this.content,
+    this.question,
+    this.thinkingStyleName,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['memo_id'] = Variable<int>(memoId);
+    {
+      map['entry_type'] = Variable<int>(
+        $DailyMemoEntriesTable.$converterentryType.toSql(entryType),
+      );
+    }
+    map['content'] = Variable<String>(content);
+    if (!nullToAbsent || question != null) {
+      map['question'] = Variable<String>(question);
+    }
+    if (!nullToAbsent || thinkingStyleName != null) {
+      map['thinking_style_name'] = Variable<String>(thinkingStyleName);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  DailyMemoEntriesCompanion toCompanion(bool nullToAbsent) {
+    return DailyMemoEntriesCompanion(
+      id: Value(id),
+      memoId: Value(memoId),
+      entryType: Value(entryType),
+      content: Value(content),
+      question: question == null && nullToAbsent
+          ? const Value.absent()
+          : Value(question),
+      thinkingStyleName: thinkingStyleName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thinkingStyleName),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory DailyMemoEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DailyMemoEntry(
+      id: serializer.fromJson<int>(json['id']),
+      memoId: serializer.fromJson<int>(json['memoId']),
+      entryType: $DailyMemoEntriesTable.$converterentryType.fromJson(
+        serializer.fromJson<int>(json['entryType']),
+      ),
+      content: serializer.fromJson<String>(json['content']),
+      question: serializer.fromJson<String?>(json['question']),
+      thinkingStyleName: serializer.fromJson<String?>(
+        json['thinkingStyleName'],
+      ),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'memoId': serializer.toJson<int>(memoId),
+      'entryType': serializer.toJson<int>(
+        $DailyMemoEntriesTable.$converterentryType.toJson(entryType),
+      ),
+      'content': serializer.toJson<String>(content),
+      'question': serializer.toJson<String?>(question),
+      'thinkingStyleName': serializer.toJson<String?>(thinkingStyleName),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  DailyMemoEntry copyWith({
+    int? id,
+    int? memoId,
+    DailyMemoEntryType? entryType,
+    String? content,
+    Value<String?> question = const Value.absent(),
+    Value<String?> thinkingStyleName = const Value.absent(),
+    DateTime? createdAt,
+  }) => DailyMemoEntry(
+    id: id ?? this.id,
+    memoId: memoId ?? this.memoId,
+    entryType: entryType ?? this.entryType,
+    content: content ?? this.content,
+    question: question.present ? question.value : this.question,
+    thinkingStyleName: thinkingStyleName.present
+        ? thinkingStyleName.value
+        : this.thinkingStyleName,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  DailyMemoEntry copyWithCompanion(DailyMemoEntriesCompanion data) {
+    return DailyMemoEntry(
+      id: data.id.present ? data.id.value : this.id,
+      memoId: data.memoId.present ? data.memoId.value : this.memoId,
+      entryType: data.entryType.present ? data.entryType.value : this.entryType,
+      content: data.content.present ? data.content.value : this.content,
+      question: data.question.present ? data.question.value : this.question,
+      thinkingStyleName: data.thinkingStyleName.present
+          ? data.thinkingStyleName.value
+          : this.thinkingStyleName,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DailyMemoEntry(')
+          ..write('id: $id, ')
+          ..write('memoId: $memoId, ')
+          ..write('entryType: $entryType, ')
+          ..write('content: $content, ')
+          ..write('question: $question, ')
+          ..write('thinkingStyleName: $thinkingStyleName, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    memoId,
+    entryType,
+    content,
+    question,
+    thinkingStyleName,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DailyMemoEntry &&
+          other.id == this.id &&
+          other.memoId == this.memoId &&
+          other.entryType == this.entryType &&
+          other.content == this.content &&
+          other.question == this.question &&
+          other.thinkingStyleName == this.thinkingStyleName &&
+          other.createdAt == this.createdAt);
+}
+
+class DailyMemoEntriesCompanion extends UpdateCompanion<DailyMemoEntry> {
+  final Value<int> id;
+  final Value<int> memoId;
+  final Value<DailyMemoEntryType> entryType;
+  final Value<String> content;
+  final Value<String?> question;
+  final Value<String?> thinkingStyleName;
+  final Value<DateTime> createdAt;
+  const DailyMemoEntriesCompanion({
+    this.id = const Value.absent(),
+    this.memoId = const Value.absent(),
+    this.entryType = const Value.absent(),
+    this.content = const Value.absent(),
+    this.question = const Value.absent(),
+    this.thinkingStyleName = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  DailyMemoEntriesCompanion.insert({
+    this.id = const Value.absent(),
+    required int memoId,
+    required DailyMemoEntryType entryType,
+    required String content,
+    this.question = const Value.absent(),
+    this.thinkingStyleName = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : memoId = Value(memoId),
+       entryType = Value(entryType),
+       content = Value(content);
+  static Insertable<DailyMemoEntry> custom({
+    Expression<int>? id,
+    Expression<int>? memoId,
+    Expression<int>? entryType,
+    Expression<String>? content,
+    Expression<String>? question,
+    Expression<String>? thinkingStyleName,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (memoId != null) 'memo_id': memoId,
+      if (entryType != null) 'entry_type': entryType,
+      if (content != null) 'content': content,
+      if (question != null) 'question': question,
+      if (thinkingStyleName != null) 'thinking_style_name': thinkingStyleName,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  DailyMemoEntriesCompanion copyWith({
+    Value<int>? id,
+    Value<int>? memoId,
+    Value<DailyMemoEntryType>? entryType,
+    Value<String>? content,
+    Value<String?>? question,
+    Value<String?>? thinkingStyleName,
+    Value<DateTime>? createdAt,
+  }) {
+    return DailyMemoEntriesCompanion(
+      id: id ?? this.id,
+      memoId: memoId ?? this.memoId,
+      entryType: entryType ?? this.entryType,
+      content: content ?? this.content,
+      question: question ?? this.question,
+      thinkingStyleName: thinkingStyleName ?? this.thinkingStyleName,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (memoId.present) {
+      map['memo_id'] = Variable<int>(memoId.value);
+    }
+    if (entryType.present) {
+      map['entry_type'] = Variable<int>(
+        $DailyMemoEntriesTable.$converterentryType.toSql(entryType.value),
+      );
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (question.present) {
+      map['question'] = Variable<String>(question.value);
+    }
+    if (thinkingStyleName.present) {
+      map['thinking_style_name'] = Variable<String>(thinkingStyleName.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DailyMemoEntriesCompanion(')
+          ..write('id: $id, ')
+          ..write('memoId: $memoId, ')
+          ..write('entryType: $entryType, ')
+          ..write('content: $content, ')
+          ..write('question: $question, ')
+          ..write('thinkingStyleName: $thinkingStyleName, ')
+          ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
@@ -11328,12 +14266,21 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $BooksTable books = $BooksTable(this);
   late final $ReadingMemosTable readingMemos = $ReadingMemosTable(this);
+  late final $ReadingMemoEntriesTable readingMemoEntries =
+      $ReadingMemoEntriesTable(this);
   late final $ReadingReflectionsTable readingReflections =
       $ReadingReflectionsTable(this);
+  late final $CodeEntriesTable codeEntries = $CodeEntriesTable(this);
+  late final $CodeEntryEntriesTable codeEntryEntries = $CodeEntryEntriesTable(
+    this,
+  );
   late final $ConceptDictionariesTable conceptDictionaries =
       $ConceptDictionariesTable(this);
   late final $ConceptMemosTable conceptMemos = $ConceptMemosTable(this);
   late final $DailyMemosTable dailyMemos = $DailyMemosTable(this);
+  late final $DailyMemoEntriesTable dailyMemoEntries = $DailyMemoEntriesTable(
+    this,
+  );
   late final $DictionaryDefinitionsTable dictionaryDefinitions =
       $DictionaryDefinitionsTable(this);
   late final $DictionaryFieldsTable dictionaryFields = $DictionaryFieldsTable(
@@ -11356,10 +14303,19 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PhilosophicalConceptExtractionsTable
   philosophicalConceptExtractions = $PhilosophicalConceptExtractionsTable(this);
   late final EntriesDao entriesDao = EntriesDao(this as AppDatabase);
+  late final CodeEntriesDao codeEntriesDao = CodeEntriesDao(
+    this as AppDatabase,
+  );
+  late final CodeEntryEntriesDao codeEntryEntriesDao = CodeEntryEntriesDao(
+    this as AppDatabase,
+  );
   late final ConceptMemosDao conceptMemosDao = ConceptMemosDao(
     this as AppDatabase,
   );
   late final DailyMemosDao dailyMemosDao = DailyMemosDao(this as AppDatabase);
+  late final DailyMemoEntriesDao dailyMemoEntriesDao = DailyMemoEntriesDao(
+    this as AppDatabase,
+  );
   late final DictionariesDao dictionariesDao = DictionariesDao(
     this as AppDatabase,
   );
@@ -11370,6 +14326,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final ReadingMemosDao readingMemosDao = ReadingMemosDao(
     this as AppDatabase,
   );
+  late final ReadingMemoEntriesDao readingMemoEntriesDao =
+      ReadingMemoEntriesDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -11380,10 +14338,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     entryAppendices,
     books,
     readingMemos,
+    readingMemoEntries,
     readingReflections,
+    codeEntries,
+    codeEntryEntries,
     conceptDictionaries,
     conceptMemos,
     dailyMemos,
+    dailyMemoEntries,
     dictionaryDefinitions,
     dictionaryFields,
     dictionaryEntries,
@@ -12858,21 +15820,27 @@ typedef $$ReadingMemosTableCreateCompanionBuilder =
     ReadingMemosCompanion Function({
       Value<int> id,
       required int bookId,
-      required String content,
+      required MemoType type,
+      Value<String?> excerptText,
+      required String thoughtText,
       Value<String?> sectionTitle,
       Value<String?> pageNumber,
       Value<DateTime> createdAt,
       Value<DateTime?> updatedAt,
+      Value<String?> content,
     });
 typedef $$ReadingMemosTableUpdateCompanionBuilder =
     ReadingMemosCompanion Function({
       Value<int> id,
       Value<int> bookId,
-      Value<String> content,
+      Value<MemoType> type,
+      Value<String?> excerptText,
+      Value<String> thoughtText,
       Value<String?> sectionTitle,
       Value<String?> pageNumber,
       Value<DateTime> createdAt,
       Value<DateTime?> updatedAt,
+      Value<String?> content,
     });
 
 class $$ReadingMemosTableFilterComposer
@@ -12894,8 +15862,19 @@ class $$ReadingMemosTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get content => $composableBuilder(
-    column: $table.content,
+  ColumnWithTypeConverterFilters<MemoType, MemoType, int> get type =>
+      $composableBuilder(
+        column: $table.type,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get excerptText => $composableBuilder(
+    column: $table.excerptText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get thoughtText => $composableBuilder(
+    column: $table.thoughtText,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12916,6 +15895,11 @@ class $$ReadingMemosTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -12939,8 +15923,18 @@ class $$ReadingMemosTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get content => $composableBuilder(
-    column: $table.content,
+  ColumnOrderings<int> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get excerptText => $composableBuilder(
+    column: $table.excerptText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get thoughtText => $composableBuilder(
+    column: $table.thoughtText,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -12963,6 +15957,11 @@ class $$ReadingMemosTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ReadingMemosTableAnnotationComposer
@@ -12980,8 +15979,18 @@ class $$ReadingMemosTableAnnotationComposer
   GeneratedColumn<int> get bookId =>
       $composableBuilder(column: $table.bookId, builder: (column) => column);
 
-  GeneratedColumn<String> get content =>
-      $composableBuilder(column: $table.content, builder: (column) => column);
+  GeneratedColumnWithTypeConverter<MemoType, int> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get excerptText => $composableBuilder(
+    column: $table.excerptText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get thoughtText => $composableBuilder(
+    column: $table.thoughtText,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get sectionTitle => $composableBuilder(
     column: $table.sectionTitle,
@@ -12998,6 +16007,9 @@ class $$ReadingMemosTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
 }
 
 class $$ReadingMemosTableTableManager
@@ -13033,37 +16045,49 @@ class $$ReadingMemosTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<int> bookId = const Value.absent(),
-                Value<String> content = const Value.absent(),
+                Value<MemoType> type = const Value.absent(),
+                Value<String?> excerptText = const Value.absent(),
+                Value<String> thoughtText = const Value.absent(),
                 Value<String?> sectionTitle = const Value.absent(),
                 Value<String?> pageNumber = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<String?> content = const Value.absent(),
               }) => ReadingMemosCompanion(
                 id: id,
                 bookId: bookId,
-                content: content,
+                type: type,
+                excerptText: excerptText,
+                thoughtText: thoughtText,
                 sectionTitle: sectionTitle,
                 pageNumber: pageNumber,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                content: content,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required int bookId,
-                required String content,
+                required MemoType type,
+                Value<String?> excerptText = const Value.absent(),
+                required String thoughtText,
                 Value<String?> sectionTitle = const Value.absent(),
                 Value<String?> pageNumber = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<String?> content = const Value.absent(),
               }) => ReadingMemosCompanion.insert(
                 id: id,
                 bookId: bookId,
-                content: content,
+                type: type,
+                excerptText: excerptText,
+                thoughtText: thoughtText,
                 sectionTitle: sectionTitle,
                 pageNumber: pageNumber,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                content: content,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -13088,6 +16112,254 @@ typedef $$ReadingMemosTableProcessedTableManager =
         BaseReferences<_$AppDatabase, $ReadingMemosTable, ReadingMemo>,
       ),
       ReadingMemo,
+      PrefetchHooks Function()
+    >;
+typedef $$ReadingMemoEntriesTableCreateCompanionBuilder =
+    ReadingMemoEntriesCompanion Function({
+      Value<int> id,
+      required int memoId,
+      required MemoEntryType entryType,
+      required String content,
+      Value<String?> question,
+      Value<String?> thinkingStyleName,
+      Value<DateTime> createdAt,
+    });
+typedef $$ReadingMemoEntriesTableUpdateCompanionBuilder =
+    ReadingMemoEntriesCompanion Function({
+      Value<int> id,
+      Value<int> memoId,
+      Value<MemoEntryType> entryType,
+      Value<String> content,
+      Value<String?> question,
+      Value<String?> thinkingStyleName,
+      Value<DateTime> createdAt,
+    });
+
+class $$ReadingMemoEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $ReadingMemoEntriesTable> {
+  $$ReadingMemoEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get memoId => $composableBuilder(
+    column: $table.memoId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<MemoEntryType, MemoEntryType, int>
+  get entryType => $composableBuilder(
+    column: $table.entryType,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get question => $composableBuilder(
+    column: $table.question,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get thinkingStyleName => $composableBuilder(
+    column: $table.thinkingStyleName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ReadingMemoEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReadingMemoEntriesTable> {
+  $$ReadingMemoEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get memoId => $composableBuilder(
+    column: $table.memoId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get entryType => $composableBuilder(
+    column: $table.entryType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get question => $composableBuilder(
+    column: $table.question,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get thinkingStyleName => $composableBuilder(
+    column: $table.thinkingStyleName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ReadingMemoEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReadingMemoEntriesTable> {
+  $$ReadingMemoEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get memoId =>
+      $composableBuilder(column: $table.memoId, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<MemoEntryType, int> get entryType =>
+      $composableBuilder(column: $table.entryType, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get question =>
+      $composableBuilder(column: $table.question, builder: (column) => column);
+
+  GeneratedColumn<String> get thinkingStyleName => $composableBuilder(
+    column: $table.thinkingStyleName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$ReadingMemoEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReadingMemoEntriesTable,
+          ReadingMemoEntry,
+          $$ReadingMemoEntriesTableFilterComposer,
+          $$ReadingMemoEntriesTableOrderingComposer,
+          $$ReadingMemoEntriesTableAnnotationComposer,
+          $$ReadingMemoEntriesTableCreateCompanionBuilder,
+          $$ReadingMemoEntriesTableUpdateCompanionBuilder,
+          (
+            ReadingMemoEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $ReadingMemoEntriesTable,
+              ReadingMemoEntry
+            >,
+          ),
+          ReadingMemoEntry,
+          PrefetchHooks Function()
+        > {
+  $$ReadingMemoEntriesTableTableManager(
+    _$AppDatabase db,
+    $ReadingMemoEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReadingMemoEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReadingMemoEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ReadingMemoEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> memoId = const Value.absent(),
+                Value<MemoEntryType> entryType = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<String?> question = const Value.absent(),
+                Value<String?> thinkingStyleName = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => ReadingMemoEntriesCompanion(
+                id: id,
+                memoId: memoId,
+                entryType: entryType,
+                content: content,
+                question: question,
+                thinkingStyleName: thinkingStyleName,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int memoId,
+                required MemoEntryType entryType,
+                required String content,
+                Value<String?> question = const Value.absent(),
+                Value<String?> thinkingStyleName = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => ReadingMemoEntriesCompanion.insert(
+                id: id,
+                memoId: memoId,
+                entryType: entryType,
+                content: content,
+                question: question,
+                thinkingStyleName: thinkingStyleName,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ReadingMemoEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReadingMemoEntriesTable,
+      ReadingMemoEntry,
+      $$ReadingMemoEntriesTableFilterComposer,
+      $$ReadingMemoEntriesTableOrderingComposer,
+      $$ReadingMemoEntriesTableAnnotationComposer,
+      $$ReadingMemoEntriesTableCreateCompanionBuilder,
+      $$ReadingMemoEntriesTableUpdateCompanionBuilder,
+      (
+        ReadingMemoEntry,
+        BaseReferences<
+          _$AppDatabase,
+          $ReadingMemoEntriesTable,
+          ReadingMemoEntry
+        >,
+      ),
+      ReadingMemoEntry,
       PrefetchHooks Function()
     >;
 typedef $$ReadingReflectionsTableCreateCompanionBuilder =
@@ -13276,6 +16548,820 @@ typedef $$ReadingReflectionsTableProcessedTableManager =
         >,
       ),
       ReadingReflection,
+      PrefetchHooks Function()
+    >;
+typedef $$CodeEntriesTableCreateCompanionBuilder =
+    CodeEntriesCompanion Function({
+      Value<int> id,
+      required String title,
+      required String code,
+      required CodeEntryType entryType,
+      Value<String?> language,
+      Value<String?> libraries,
+      Value<String?> structure,
+      Value<String?> capabilities,
+      Value<String?> useCases,
+      Value<String?> learningPoints,
+      Value<String?> synonymousCodes,
+      Value<String?> antonymousCodes,
+      Value<String?> relatedCodes,
+      Value<String?> examples,
+      Value<String?> cautions,
+      Value<String?> trivia,
+      Value<String?> tips,
+      Value<String?> commonMistakes,
+      Value<String?> gyaruExplanation,
+      Value<String?> kindergartenExplanation,
+      Value<int?> learningLevel,
+      Value<String?> tags,
+      Value<String?> category,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+    });
+typedef $$CodeEntriesTableUpdateCompanionBuilder =
+    CodeEntriesCompanion Function({
+      Value<int> id,
+      Value<String> title,
+      Value<String> code,
+      Value<CodeEntryType> entryType,
+      Value<String?> language,
+      Value<String?> libraries,
+      Value<String?> structure,
+      Value<String?> capabilities,
+      Value<String?> useCases,
+      Value<String?> learningPoints,
+      Value<String?> synonymousCodes,
+      Value<String?> antonymousCodes,
+      Value<String?> relatedCodes,
+      Value<String?> examples,
+      Value<String?> cautions,
+      Value<String?> trivia,
+      Value<String?> tips,
+      Value<String?> commonMistakes,
+      Value<String?> gyaruExplanation,
+      Value<String?> kindergartenExplanation,
+      Value<int?> learningLevel,
+      Value<String?> tags,
+      Value<String?> category,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+    });
+
+class $$CodeEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $CodeEntriesTable> {
+  $$CodeEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<CodeEntryType, CodeEntryType, int>
+  get entryType => $composableBuilder(
+    column: $table.entryType,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get language => $composableBuilder(
+    column: $table.language,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get libraries => $composableBuilder(
+    column: $table.libraries,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get structure => $composableBuilder(
+    column: $table.structure,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get capabilities => $composableBuilder(
+    column: $table.capabilities,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get useCases => $composableBuilder(
+    column: $table.useCases,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get learningPoints => $composableBuilder(
+    column: $table.learningPoints,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get synonymousCodes => $composableBuilder(
+    column: $table.synonymousCodes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get antonymousCodes => $composableBuilder(
+    column: $table.antonymousCodes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get relatedCodes => $composableBuilder(
+    column: $table.relatedCodes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get examples => $composableBuilder(
+    column: $table.examples,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cautions => $composableBuilder(
+    column: $table.cautions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get trivia => $composableBuilder(
+    column: $table.trivia,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tips => $composableBuilder(
+    column: $table.tips,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get commonMistakes => $composableBuilder(
+    column: $table.commonMistakes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get gyaruExplanation => $composableBuilder(
+    column: $table.gyaruExplanation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kindergartenExplanation => $composableBuilder(
+    column: $table.kindergartenExplanation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get learningLevel => $composableBuilder(
+    column: $table.learningLevel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tags => $composableBuilder(
+    column: $table.tags,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CodeEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CodeEntriesTable> {
+  $$CodeEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get entryType => $composableBuilder(
+    column: $table.entryType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get language => $composableBuilder(
+    column: $table.language,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get libraries => $composableBuilder(
+    column: $table.libraries,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get structure => $composableBuilder(
+    column: $table.structure,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get capabilities => $composableBuilder(
+    column: $table.capabilities,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get useCases => $composableBuilder(
+    column: $table.useCases,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get learningPoints => $composableBuilder(
+    column: $table.learningPoints,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get synonymousCodes => $composableBuilder(
+    column: $table.synonymousCodes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get antonymousCodes => $composableBuilder(
+    column: $table.antonymousCodes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get relatedCodes => $composableBuilder(
+    column: $table.relatedCodes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get examples => $composableBuilder(
+    column: $table.examples,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cautions => $composableBuilder(
+    column: $table.cautions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get trivia => $composableBuilder(
+    column: $table.trivia,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tips => $composableBuilder(
+    column: $table.tips,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get commonMistakes => $composableBuilder(
+    column: $table.commonMistakes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get gyaruExplanation => $composableBuilder(
+    column: $table.gyaruExplanation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kindergartenExplanation => $composableBuilder(
+    column: $table.kindergartenExplanation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get learningLevel => $composableBuilder(
+    column: $table.learningLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tags => $composableBuilder(
+    column: $table.tags,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CodeEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CodeEntriesTable> {
+  $$CodeEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get code =>
+      $composableBuilder(column: $table.code, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<CodeEntryType, int> get entryType =>
+      $composableBuilder(column: $table.entryType, builder: (column) => column);
+
+  GeneratedColumn<String> get language =>
+      $composableBuilder(column: $table.language, builder: (column) => column);
+
+  GeneratedColumn<String> get libraries =>
+      $composableBuilder(column: $table.libraries, builder: (column) => column);
+
+  GeneratedColumn<String> get structure =>
+      $composableBuilder(column: $table.structure, builder: (column) => column);
+
+  GeneratedColumn<String> get capabilities => $composableBuilder(
+    column: $table.capabilities,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get useCases =>
+      $composableBuilder(column: $table.useCases, builder: (column) => column);
+
+  GeneratedColumn<String> get learningPoints => $composableBuilder(
+    column: $table.learningPoints,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get synonymousCodes => $composableBuilder(
+    column: $table.synonymousCodes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get antonymousCodes => $composableBuilder(
+    column: $table.antonymousCodes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get relatedCodes => $composableBuilder(
+    column: $table.relatedCodes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get examples =>
+      $composableBuilder(column: $table.examples, builder: (column) => column);
+
+  GeneratedColumn<String> get cautions =>
+      $composableBuilder(column: $table.cautions, builder: (column) => column);
+
+  GeneratedColumn<String> get trivia =>
+      $composableBuilder(column: $table.trivia, builder: (column) => column);
+
+  GeneratedColumn<String> get tips =>
+      $composableBuilder(column: $table.tips, builder: (column) => column);
+
+  GeneratedColumn<String> get commonMistakes => $composableBuilder(
+    column: $table.commonMistakes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get gyaruExplanation => $composableBuilder(
+    column: $table.gyaruExplanation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get kindergartenExplanation => $composableBuilder(
+    column: $table.kindergartenExplanation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get learningLevel => $composableBuilder(
+    column: $table.learningLevel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get tags =>
+      $composableBuilder(column: $table.tags, builder: (column) => column);
+
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$CodeEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CodeEntriesTable,
+          CodeEntry,
+          $$CodeEntriesTableFilterComposer,
+          $$CodeEntriesTableOrderingComposer,
+          $$CodeEntriesTableAnnotationComposer,
+          $$CodeEntriesTableCreateCompanionBuilder,
+          $$CodeEntriesTableUpdateCompanionBuilder,
+          (
+            CodeEntry,
+            BaseReferences<_$AppDatabase, $CodeEntriesTable, CodeEntry>,
+          ),
+          CodeEntry,
+          PrefetchHooks Function()
+        > {
+  $$CodeEntriesTableTableManager(_$AppDatabase db, $CodeEntriesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CodeEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CodeEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CodeEntriesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String> code = const Value.absent(),
+                Value<CodeEntryType> entryType = const Value.absent(),
+                Value<String?> language = const Value.absent(),
+                Value<String?> libraries = const Value.absent(),
+                Value<String?> structure = const Value.absent(),
+                Value<String?> capabilities = const Value.absent(),
+                Value<String?> useCases = const Value.absent(),
+                Value<String?> learningPoints = const Value.absent(),
+                Value<String?> synonymousCodes = const Value.absent(),
+                Value<String?> antonymousCodes = const Value.absent(),
+                Value<String?> relatedCodes = const Value.absent(),
+                Value<String?> examples = const Value.absent(),
+                Value<String?> cautions = const Value.absent(),
+                Value<String?> trivia = const Value.absent(),
+                Value<String?> tips = const Value.absent(),
+                Value<String?> commonMistakes = const Value.absent(),
+                Value<String?> gyaruExplanation = const Value.absent(),
+                Value<String?> kindergartenExplanation = const Value.absent(),
+                Value<int?> learningLevel = const Value.absent(),
+                Value<String?> tags = const Value.absent(),
+                Value<String?> category = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => CodeEntriesCompanion(
+                id: id,
+                title: title,
+                code: code,
+                entryType: entryType,
+                language: language,
+                libraries: libraries,
+                structure: structure,
+                capabilities: capabilities,
+                useCases: useCases,
+                learningPoints: learningPoints,
+                synonymousCodes: synonymousCodes,
+                antonymousCodes: antonymousCodes,
+                relatedCodes: relatedCodes,
+                examples: examples,
+                cautions: cautions,
+                trivia: trivia,
+                tips: tips,
+                commonMistakes: commonMistakes,
+                gyaruExplanation: gyaruExplanation,
+                kindergartenExplanation: kindergartenExplanation,
+                learningLevel: learningLevel,
+                tags: tags,
+                category: category,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String title,
+                required String code,
+                required CodeEntryType entryType,
+                Value<String?> language = const Value.absent(),
+                Value<String?> libraries = const Value.absent(),
+                Value<String?> structure = const Value.absent(),
+                Value<String?> capabilities = const Value.absent(),
+                Value<String?> useCases = const Value.absent(),
+                Value<String?> learningPoints = const Value.absent(),
+                Value<String?> synonymousCodes = const Value.absent(),
+                Value<String?> antonymousCodes = const Value.absent(),
+                Value<String?> relatedCodes = const Value.absent(),
+                Value<String?> examples = const Value.absent(),
+                Value<String?> cautions = const Value.absent(),
+                Value<String?> trivia = const Value.absent(),
+                Value<String?> tips = const Value.absent(),
+                Value<String?> commonMistakes = const Value.absent(),
+                Value<String?> gyaruExplanation = const Value.absent(),
+                Value<String?> kindergartenExplanation = const Value.absent(),
+                Value<int?> learningLevel = const Value.absent(),
+                Value<String?> tags = const Value.absent(),
+                Value<String?> category = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => CodeEntriesCompanion.insert(
+                id: id,
+                title: title,
+                code: code,
+                entryType: entryType,
+                language: language,
+                libraries: libraries,
+                structure: structure,
+                capabilities: capabilities,
+                useCases: useCases,
+                learningPoints: learningPoints,
+                synonymousCodes: synonymousCodes,
+                antonymousCodes: antonymousCodes,
+                relatedCodes: relatedCodes,
+                examples: examples,
+                cautions: cautions,
+                trivia: trivia,
+                tips: tips,
+                commonMistakes: commonMistakes,
+                gyaruExplanation: gyaruExplanation,
+                kindergartenExplanation: kindergartenExplanation,
+                learningLevel: learningLevel,
+                tags: tags,
+                category: category,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CodeEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CodeEntriesTable,
+      CodeEntry,
+      $$CodeEntriesTableFilterComposer,
+      $$CodeEntriesTableOrderingComposer,
+      $$CodeEntriesTableAnnotationComposer,
+      $$CodeEntriesTableCreateCompanionBuilder,
+      $$CodeEntriesTableUpdateCompanionBuilder,
+      (CodeEntry, BaseReferences<_$AppDatabase, $CodeEntriesTable, CodeEntry>),
+      CodeEntry,
+      PrefetchHooks Function()
+    >;
+typedef $$CodeEntryEntriesTableCreateCompanionBuilder =
+    CodeEntryEntriesCompanion Function({
+      Value<int> id,
+      required int codeEntryId,
+      required CodeEntryEntryType entryType,
+      required String content,
+      Value<String?> thinkingStyleName,
+      Value<DateTime> createdAt,
+    });
+typedef $$CodeEntryEntriesTableUpdateCompanionBuilder =
+    CodeEntryEntriesCompanion Function({
+      Value<int> id,
+      Value<int> codeEntryId,
+      Value<CodeEntryEntryType> entryType,
+      Value<String> content,
+      Value<String?> thinkingStyleName,
+      Value<DateTime> createdAt,
+    });
+
+class $$CodeEntryEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $CodeEntryEntriesTable> {
+  $$CodeEntryEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get codeEntryId => $composableBuilder(
+    column: $table.codeEntryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<CodeEntryEntryType, CodeEntryEntryType, int>
+  get entryType => $composableBuilder(
+    column: $table.entryType,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get thinkingStyleName => $composableBuilder(
+    column: $table.thinkingStyleName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CodeEntryEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CodeEntryEntriesTable> {
+  $$CodeEntryEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get codeEntryId => $composableBuilder(
+    column: $table.codeEntryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get entryType => $composableBuilder(
+    column: $table.entryType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get thinkingStyleName => $composableBuilder(
+    column: $table.thinkingStyleName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CodeEntryEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CodeEntryEntriesTable> {
+  $$CodeEntryEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get codeEntryId => $composableBuilder(
+    column: $table.codeEntryId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<CodeEntryEntryType, int> get entryType =>
+      $composableBuilder(column: $table.entryType, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get thinkingStyleName => $composableBuilder(
+    column: $table.thinkingStyleName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$CodeEntryEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CodeEntryEntriesTable,
+          CodeEntryEntry,
+          $$CodeEntryEntriesTableFilterComposer,
+          $$CodeEntryEntriesTableOrderingComposer,
+          $$CodeEntryEntriesTableAnnotationComposer,
+          $$CodeEntryEntriesTableCreateCompanionBuilder,
+          $$CodeEntryEntriesTableUpdateCompanionBuilder,
+          (
+            CodeEntryEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $CodeEntryEntriesTable,
+              CodeEntryEntry
+            >,
+          ),
+          CodeEntryEntry,
+          PrefetchHooks Function()
+        > {
+  $$CodeEntryEntriesTableTableManager(
+    _$AppDatabase db,
+    $CodeEntryEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CodeEntryEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CodeEntryEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CodeEntryEntriesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> codeEntryId = const Value.absent(),
+                Value<CodeEntryEntryType> entryType = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<String?> thinkingStyleName = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => CodeEntryEntriesCompanion(
+                id: id,
+                codeEntryId: codeEntryId,
+                entryType: entryType,
+                content: content,
+                thinkingStyleName: thinkingStyleName,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int codeEntryId,
+                required CodeEntryEntryType entryType,
+                required String content,
+                Value<String?> thinkingStyleName = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => CodeEntryEntriesCompanion.insert(
+                id: id,
+                codeEntryId: codeEntryId,
+                entryType: entryType,
+                content: content,
+                thinkingStyleName: thinkingStyleName,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CodeEntryEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CodeEntryEntriesTable,
+      CodeEntryEntry,
+      $$CodeEntryEntriesTableFilterComposer,
+      $$CodeEntryEntriesTableOrderingComposer,
+      $$CodeEntryEntriesTableAnnotationComposer,
+      $$CodeEntryEntriesTableCreateCompanionBuilder,
+      $$CodeEntryEntriesTableUpdateCompanionBuilder,
+      (
+        CodeEntryEntry,
+        BaseReferences<_$AppDatabase, $CodeEntryEntriesTable, CodeEntryEntry>,
+      ),
+      CodeEntryEntry,
       PrefetchHooks Function()
     >;
 typedef $$ConceptDictionariesTableCreateCompanionBuilder =
@@ -14215,6 +18301,247 @@ typedef $$DailyMemosTableProcessedTableManager =
       $$DailyMemosTableUpdateCompanionBuilder,
       (DailyMemo, BaseReferences<_$AppDatabase, $DailyMemosTable, DailyMemo>),
       DailyMemo,
+      PrefetchHooks Function()
+    >;
+typedef $$DailyMemoEntriesTableCreateCompanionBuilder =
+    DailyMemoEntriesCompanion Function({
+      Value<int> id,
+      required int memoId,
+      required DailyMemoEntryType entryType,
+      required String content,
+      Value<String?> question,
+      Value<String?> thinkingStyleName,
+      Value<DateTime> createdAt,
+    });
+typedef $$DailyMemoEntriesTableUpdateCompanionBuilder =
+    DailyMemoEntriesCompanion Function({
+      Value<int> id,
+      Value<int> memoId,
+      Value<DailyMemoEntryType> entryType,
+      Value<String> content,
+      Value<String?> question,
+      Value<String?> thinkingStyleName,
+      Value<DateTime> createdAt,
+    });
+
+class $$DailyMemoEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $DailyMemoEntriesTable> {
+  $$DailyMemoEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get memoId => $composableBuilder(
+    column: $table.memoId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DailyMemoEntryType, DailyMemoEntryType, int>
+  get entryType => $composableBuilder(
+    column: $table.entryType,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get question => $composableBuilder(
+    column: $table.question,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get thinkingStyleName => $composableBuilder(
+    column: $table.thinkingStyleName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DailyMemoEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $DailyMemoEntriesTable> {
+  $$DailyMemoEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get memoId => $composableBuilder(
+    column: $table.memoId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get entryType => $composableBuilder(
+    column: $table.entryType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get question => $composableBuilder(
+    column: $table.question,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get thinkingStyleName => $composableBuilder(
+    column: $table.thinkingStyleName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DailyMemoEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DailyMemoEntriesTable> {
+  $$DailyMemoEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get memoId =>
+      $composableBuilder(column: $table.memoId, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DailyMemoEntryType, int> get entryType =>
+      $composableBuilder(column: $table.entryType, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get question =>
+      $composableBuilder(column: $table.question, builder: (column) => column);
+
+  GeneratedColumn<String> get thinkingStyleName => $composableBuilder(
+    column: $table.thinkingStyleName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$DailyMemoEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DailyMemoEntriesTable,
+          DailyMemoEntry,
+          $$DailyMemoEntriesTableFilterComposer,
+          $$DailyMemoEntriesTableOrderingComposer,
+          $$DailyMemoEntriesTableAnnotationComposer,
+          $$DailyMemoEntriesTableCreateCompanionBuilder,
+          $$DailyMemoEntriesTableUpdateCompanionBuilder,
+          (
+            DailyMemoEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $DailyMemoEntriesTable,
+              DailyMemoEntry
+            >,
+          ),
+          DailyMemoEntry,
+          PrefetchHooks Function()
+        > {
+  $$DailyMemoEntriesTableTableManager(
+    _$AppDatabase db,
+    $DailyMemoEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DailyMemoEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DailyMemoEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DailyMemoEntriesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> memoId = const Value.absent(),
+                Value<DailyMemoEntryType> entryType = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<String?> question = const Value.absent(),
+                Value<String?> thinkingStyleName = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => DailyMemoEntriesCompanion(
+                id: id,
+                memoId: memoId,
+                entryType: entryType,
+                content: content,
+                question: question,
+                thinkingStyleName: thinkingStyleName,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int memoId,
+                required DailyMemoEntryType entryType,
+                required String content,
+                Value<String?> question = const Value.absent(),
+                Value<String?> thinkingStyleName = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => DailyMemoEntriesCompanion.insert(
+                id: id,
+                memoId: memoId,
+                entryType: entryType,
+                content: content,
+                question: question,
+                thinkingStyleName: thinkingStyleName,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DailyMemoEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DailyMemoEntriesTable,
+      DailyMemoEntry,
+      $$DailyMemoEntriesTableFilterComposer,
+      $$DailyMemoEntriesTableOrderingComposer,
+      $$DailyMemoEntriesTableAnnotationComposer,
+      $$DailyMemoEntriesTableCreateCompanionBuilder,
+      $$DailyMemoEntriesTableUpdateCompanionBuilder,
+      (
+        DailyMemoEntry,
+        BaseReferences<_$AppDatabase, $DailyMemoEntriesTable, DailyMemoEntry>,
+      ),
+      DailyMemoEntry,
       PrefetchHooks Function()
     >;
 typedef $$DictionaryDefinitionsTableCreateCompanionBuilder =
@@ -17168,14 +21495,22 @@ class $AppDatabaseManager {
       $$BooksTableTableManager(_db, _db.books);
   $$ReadingMemosTableTableManager get readingMemos =>
       $$ReadingMemosTableTableManager(_db, _db.readingMemos);
+  $$ReadingMemoEntriesTableTableManager get readingMemoEntries =>
+      $$ReadingMemoEntriesTableTableManager(_db, _db.readingMemoEntries);
   $$ReadingReflectionsTableTableManager get readingReflections =>
       $$ReadingReflectionsTableTableManager(_db, _db.readingReflections);
+  $$CodeEntriesTableTableManager get codeEntries =>
+      $$CodeEntriesTableTableManager(_db, _db.codeEntries);
+  $$CodeEntryEntriesTableTableManager get codeEntryEntries =>
+      $$CodeEntryEntriesTableTableManager(_db, _db.codeEntryEntries);
   $$ConceptDictionariesTableTableManager get conceptDictionaries =>
       $$ConceptDictionariesTableTableManager(_db, _db.conceptDictionaries);
   $$ConceptMemosTableTableManager get conceptMemos =>
       $$ConceptMemosTableTableManager(_db, _db.conceptMemos);
   $$DailyMemosTableTableManager get dailyMemos =>
       $$DailyMemosTableTableManager(_db, _db.dailyMemos);
+  $$DailyMemoEntriesTableTableManager get dailyMemoEntries =>
+      $$DailyMemoEntriesTableTableManager(_db, _db.dailyMemoEntries);
   $$DictionaryDefinitionsTableTableManager get dictionaryDefinitions =>
       $$DictionaryDefinitionsTableTableManager(_db, _db.dictionaryDefinitions);
   $$DictionaryFieldsTableTableManager get dictionaryFields =>

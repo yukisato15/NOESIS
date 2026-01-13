@@ -1,9 +1,11 @@
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../../core/ai/ai_client.dart';
 import '../../core/ai/ai_mode.dart';
+import '../../core/ai/search_client.dart';
 import '../../data/local/database.dart';
 
 /// 本の登録画面
@@ -37,6 +39,12 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
   bool _isCompletingWithAI = false;
 
   @override
+  void initState() {
+    super.initState();
+    _db.ensureBooksColumns();
+  }
+
+  @override
   void dispose() {
     _titleController.dispose();
     _authorController.dispose();
@@ -50,6 +58,66 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
     _reviewSummaryController.dispose();
     _db.close();
     super.dispose();
+  }
+
+  Future<Map<String, dynamic>> _fetchBookInfo({
+    required String title,
+    required String author,
+    required AIMode mode,
+  }) {
+    final prompt = '''
+あなたは書籍データベースのアシスタントです。以下の書籍について、知っている情報をJSON形式で返してください。
+
+書名: $title
+著者: $author
+
+必ず以下のJSON形式で返してください：
+{
+  "genre": "ジャンル（例: 哲学、小説、ビジネス書、自己啓発、技術書など）",
+  "publisher": "出版社名",
+  "published_date": "出版年（YYYY形式、例: 2020）",
+  "isbn": "ISBN番号",
+  "synopsis": "この本の内容を100-200文字で説明",
+  "rating": "一般的な評価や評判",
+  "related_url": "AmazonなどのURL",
+  "review_summary": "この本に対する一般的な評価を50-100文字で"
+}
+
+重要:
+- 知っている情報だけを記入してください
+- 確信がない場合は空文字列 "" を返してください
+- 創作や推測は避けてください
+''';
+
+    final schema = {
+      'type': 'object',
+      'properties': {
+        'genre': {'type': 'string'},
+        'publisher': {'type': 'string'},
+        'published_date': {'type': 'string'},
+        'isbn': {'type': 'string'},
+        'synopsis': {'type': 'string'},
+        'rating': {'type': 'string'},
+        'related_url': {'type': 'string'},
+        'review_summary': {'type': 'string'},
+      },
+      'required': [
+        'genre',
+        'publisher',
+        'published_date',
+        'isbn',
+        'synopsis',
+        'rating',
+        'related_url',
+        'review_summary'
+      ],
+    };
+
+    return AIClient.instance.generateStructured(
+      prompt: prompt,
+      jsonSchema: schema,
+      mode: mode,
+    );
   }
 
   /// AIで書籍情報を自動補完
@@ -69,89 +137,124 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
       final title = _titleController.text.trim();
       final author = _authorController.text.trim();
 
-      final prompt = '''
-書籍の情報を補完してください。
+      print('[BookAdd] AI補完開始: $title / $author');
 
-書名: $title
-著者: $author
+      Map<String, dynamic> result;
+      bool usedSearch = false;
 
-以下の情報を調査して、正確な情報を返してください：
-- genre: ジャンル（例: 小説、ビジネス書、哲学書、自己啓発、技術書など）
-- publisher: 出版社
-- published_date: 出版年月日（YYYY-MM-DD形式、分からない場合はYYYY形式でも可）
-- isbn: ISBN（ISBN-10またはISBN-13）
-- synopsis: あらすじ・概要（200文字程度）
-- rating: 一般的な評価（例: 4.5/5.0、または簡単な評価コメント）
-- related_url: 関連URL（Amazon、出版社の公式ページなど、実在するURLのみ）
-- review_summary: 一般的なレビュー要約（100文字程度）
+      // まずWeb検索モードで試行
+      try {
+        // 検索API設定状況をチェック
+        final searchClient = SearchClient.instance;
+        final remaining = await searchClient.getRemainingGoogleSearches();
+        print('[BookAdd] Google検索残り回数: $remaining/100');
 
-情報が見つからない項目は空文字列 "" を返してください。
-''';
+        // .env読み込み状況を確認
+        print('[BookAdd] GOOGLE_API_KEY設定: ${dotenv.env['GOOGLE_API_KEY'] != null ? "あり（${dotenv.env['GOOGLE_API_KEY']?.substring(0, 10)}...）" : "なし"}');
+        print('[BookAdd] GOOGLE_SEARCH_ENGINE_ID設定: ${dotenv.env['GOOGLE_SEARCH_ENGINE_ID'] != null ? "あり（${dotenv.env['GOOGLE_SEARCH_ENGINE_ID']}）" : "なし"}');
 
-      final schema = {
-        'type': 'object',
-        'properties': {
-          'genre': {'type': 'string'},
-          'publisher': {'type': 'string'},
-          'published_date': {'type': 'string'},
-          'isbn': {'type': 'string'},
-          'synopsis': {'type': 'string'},
-          'rating': {'type': 'string'},
-          'related_url': {'type': 'string'},
-          'review_summary': {'type': 'string'},
-        },
-        'required': [
-          'genre',
-          'publisher',
-          'published_date',
-          'isbn',
-          'synopsis',
-          'rating',
-          'related_url',
-          'review_summary'
-        ],
-      };
+        print('[BookAdd] Web検索モードで補完を試行');
+        result = await _fetchBookInfo(
+          title: title,
+          author: author,
+          mode: AIMode.withSearch,
+        );
+        usedSearch = true;
+        print('[BookAdd] AI補完結果（検索モード）: $result');
+      } catch (e) {
+        print('[BookAdd] 検索モードでエラー: $e');
+        // 検索APIが使えない場合は通常モードにフォールバック
+        print('[BookAdd] 通常モードにフォールバック');
+        result = await _fetchBookInfo(
+          title: title,
+          author: author,
+          mode: AIMode.standard,
+        );
+        print('[BookAdd] AI補完結果（通常モード）: $result');
 
-      final result = await AIClient.instance.generateStructured(
-        prompt: prompt,
-        jsonSchema: schema,
-        mode: AIMode.withSearch, // Web検索を使用して情報を取得
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('検索APIが使えないため、通常モードで補完しました'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+
+      // 結果が空かチェック
+      final hasContent = result.values.any((value) =>
+        value != null && value.toString().trim().isNotEmpty
       );
 
+      if (!hasContent) {
+        print('[BookAdd] 警告: AIから有効な情報が取得できませんでした');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('書籍情報が見つかりませんでした。手動で入力してください。'),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (usedSearch && mounted) {
+        // 検索モードで成功した場合は、より詳細な情報が取得できたことを通知
+        print('[BookAdd] Web検索で詳細情報を取得しました');
+      }
+
+      print('[BookAdd] 各フィールドの更新開始');
       if (mounted) {
         setState(() {
           if (result['genre'] != null && result['genre'].toString().isNotEmpty) {
             _genreController.text = result['genre'].toString();
+            print('[BookAdd] ジャンル更新: ${_genreController.text}');
           }
           if (result['publisher'] != null &&
               result['publisher'].toString().isNotEmpty) {
             _publisherController.text = result['publisher'].toString();
+            print('[BookAdd] 出版社更新: ${_publisherController.text}');
           }
           if (result['published_date'] != null &&
               result['published_date'].toString().isNotEmpty) {
             _publishedDateController.text = result['published_date'].toString();
+            print('[BookAdd] 出版日更新: ${_publishedDateController.text}');
           }
           if (result['isbn'] != null && result['isbn'].toString().isNotEmpty) {
             _isbnController.text = result['isbn'].toString();
+            print('[BookAdd] ISBN更新: ${_isbnController.text}');
           }
           if (result['synopsis'] != null &&
               result['synopsis'].toString().isNotEmpty) {
             _synopsisController.text = result['synopsis'].toString();
+            final synopsisPreview = _synopsisController.text.length > 50
+                ? '${_synopsisController.text.substring(0, 50)}...'
+                : _synopsisController.text;
+            print('[BookAdd] あらすじ更新: $synopsisPreview');
           }
           if (result['rating'] != null &&
               result['rating'].toString().isNotEmpty) {
             _ratingController.text = result['rating'].toString();
+            print('[BookAdd] 評価更新: ${_ratingController.text}');
           }
           if (result['related_url'] != null &&
               result['related_url'].toString().isNotEmpty) {
             _relatedUrlController.text = result['related_url'].toString();
+            print('[BookAdd] URL更新: ${_relatedUrlController.text}');
           }
           if (result['review_summary'] != null &&
               result['review_summary'].toString().isNotEmpty) {
             _reviewSummaryController.text = result['review_summary'].toString();
+            final reviewPreview = _reviewSummaryController.text.length > 50
+                ? '${_reviewSummaryController.text.substring(0, 50)}...'
+                : _reviewSummaryController.text;
+            print('[BookAdd] レビュー更新: $reviewPreview');
           }
         });
 
+        print('[BookAdd] AI補完完了、スナックバー表示');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('AIによる情報補完が完了しました')),
         );
@@ -180,6 +283,7 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
     });
 
     try {
+      await _db.ensureBooksColumns();
       final companion = BooksCompanion.insert(
         title: _titleController.text.trim(),
         author: _authorController.text.trim(),
