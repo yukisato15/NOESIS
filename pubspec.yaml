@@ -70,6 +70,7 @@ dependencies:
   google_mlkit_text_recognition: ^0.11.0
   flutter_tesseract_ocr: ^0.4.24
   image: ^4.0.17
+  fl_chart: ^0.66.0
 
 dev_dependencies:
   flutter_test:

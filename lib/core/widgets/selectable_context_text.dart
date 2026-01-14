@@ -265,6 +265,9 @@ class _SelectableContextTextState extends State<SelectableContextText> {
       case _ContextAction.dailyMemo:
         handleDailyMemoAction(context, text);
         break;
+      case _ContextAction.askAboutCode:
+        // コールバック経由で直接実行済み
+        break;
     }
   }
 }

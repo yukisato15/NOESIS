@@ -362,6 +362,64 @@ ${_learningLevel.displayName}が理解できるように、丁寧に答えてく
     }
   }
 
+  /// タイトル編集
+  Future<void> _editTitle() async {
+    final controller = TextEditingController(text: _entry!.title);
+
+    final newTitle = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('タイトル編集'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'タイトル',
+            border: OutlineInputBorder(),
+          ),
+          maxLength: 50,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+
+    if (newTitle != null && newTitle.isNotEmpty && newTitle != _entry!.title) {
+      try {
+        await _db.codeEntriesDao.updateCodeEntryCompanion(
+          widget.entryId,
+          CodeEntriesCompanion(
+            title: Value(newTitle),
+          ),
+        );
+
+        await _loadEntryAndHistory();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('タイトルを更新しました')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('更新に失敗しました: $e')),
+          );
+        }
+      }
+    }
+
+    controller.dispose();
+  }
+
   String _getEntryTypeLabel(CodeEntryEntryType type) {
     switch (type) {
       case CodeEntryEntryType.original:
@@ -372,6 +430,8 @@ ${_learningLevel.displayName}が理解できるように、丁寧に答えてく
         return 'ユーザーメモ';
       case CodeEntryEntryType.aiRewrite:
         return 'AIリライト';
+      case CodeEntryEntryType.aiQA:
+        return 'AI質問応答';
     }
   }
 
@@ -408,6 +468,11 @@ ${_learningLevel.displayName}が理解できるように、丁寧に答えてく
       appBar: AppBar(
         title: Text(_entry!.title),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            tooltip: 'タイトル編集',
+            onPressed: _editTitle,
+          ),
           IconButton(
             icon: const Icon(Icons.delete),
             tooltip: '削除',
@@ -704,19 +769,13 @@ ${_learningLevel.displayName}が理解できるように、丁寧に答えてく
                         labelText: '先生のタイプ',
                         border: OutlineInputBorder(),
                       ),
+                      isExpanded: true,
                       items: CodingTeacherType.values.map((teacher) {
                         return DropdownMenuItem(
                           value: teacher,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(teacher.displayName),
-                              Text(
-                                teacher.description,
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
-                              ),
-                            ],
+                          child: Text(
+                            '${teacher.displayName} - ${teacher.description}',
+                            overflow: TextOverflow.ellipsis,
                           ),
                         );
                       }).toList(),
@@ -735,19 +794,13 @@ ${_learningLevel.displayName}が理解できるように、丁寧に答えてく
                         labelText: 'あなたのレベル',
                         border: OutlineInputBorder(),
                       ),
+                      isExpanded: true,
                       items: LearningLevel.values.map((level) {
                         return DropdownMenuItem(
                           value: level,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(level.displayName),
-                              Text(
-                                level.description,
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
-                              ),
-                            ],
+                          child: Text(
+                            '${level.displayName} - ${level.description}',
+                            overflow: TextOverflow.ellipsis,
                           ),
                         );
                       }).toList(),

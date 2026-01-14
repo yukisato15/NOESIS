@@ -5,6 +5,7 @@ enum CodeEntryEntryType {
   aiExplanation, // AI解説
   userNote,      // ユーザーメモ
   aiRewrite,     // AIリライト
+  aiQA,          // AI質問応答
 }
 
 /// コードエントリーへの追記履歴
@@ -15,5 +16,5 @@ class CodeEntryEntries extends Table {
   IntColumn get entryType => intEnum<CodeEntryEntryType>()(); // エントリータイプ
   TextColumn get content => text()(); // 追記内容
   TextColumn get thinkingStyleName => text().nullable()(); // 思考スタイル名（AI解説時）
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now())();
 }

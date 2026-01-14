@@ -44,6 +44,6 @@ class CodeEntries extends Table {
   TextColumn get category => text().nullable()(); // カテゴリ
 
   // タイムスタンプ
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get createdAt => dateTime().clientDefault(() => DateTime.now())();
+  DateTimeColumn get updatedAt => dateTime().clientDefault(() => DateTime.now())();
 }

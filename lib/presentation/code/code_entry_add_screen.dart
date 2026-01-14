@@ -178,34 +178,38 @@ class _CodeEntryAddScreenState extends ConsumerState<CodeEntryAddScreen> {
 以下のコードを詳細に解析して、学習に必要な情報を網羅的に抽出してください。
 とにかく丁寧に、初心者でも理解できるように説明してください。
 
+【重要】すべての説明は日本語で書いてください。英語は使わないでください。
+
 【コード】
 $code
 
-以下の情報を生成してください：
+以下の情報を日本語で生成してください：
 
 【基本情報】
 1. language: プログラミング言語名（例: Python, JavaScript, Dart, Java, C++など）
 2. libraries: 使用されているライブラリやフレームワークのリスト（配列）
-3. structure: コードの構造説明（クラス、関数、変数の構成など）
-4. capabilities: このコードができること、機能の説明
-5. useCases: 実際の用途や使用例
-6. learningPoints: このコードから学べる重要なポイント
+3. structure: コードの構造説明（クラス、関数、変数の構成など）- 日本語で詳しく
+4. capabilities: このコードができること、機能の説明 - 日本語で詳しく
+5. useCases: 実際の用途や使用例 - 日本語で詳しく
+6. learningPoints: このコードから学べる重要なポイント - 日本語で詳しく
 
 【関連コード】
-7. synonymousCodes: 類義のコード（同じ目的を達成する別の書き方、配列）
-8. antonymousCodes: 対義のコード（逆の動作をするコード、配列）
-9. relatedCodes: 関連するコード（一緒に使われることが多いコード、配列）
-10. examples: 具体的な使用例（実際の使い方を示すコード例、配列）
+7. synonymousCodes: 類義のコード（同じ目的を達成する別の書き方、配列）- コードと日本語説明
+8. antonymousCodes: 対義のコード（逆の動作をするコード、配列）- コードと日本語説明
+9. relatedCodes: 関連するコード（一緒に使われることが多いコード、配列）- コードと日本語説明
+10. examples: 具体的な使用例（実際の使い方を示すコード例、配列）- コードと日本語説明
 
 【学習サポート】
-11. cautions: 使用上の注意点や落とし穴
-12. trivia: 面白エピソードやトリビア（このコードの歴史や由来など）
-13. tips: ワンポイントアドバイス（プロが知っているコツ）
-14. commonMistakes: よくある誤用や間違い
+11. cautions: 使用上の注意点や落とし穴 - 日本語で詳しく
+12. trivia: 面白エピソードやトリビア（このコードの歴史や由来など）- 日本語で詳しく
+13. tips: ワンポイントアドバイス（プロが知っているコツ）- 日本語で詳しく
+14. commonMistakes: よくある誤用や間違い - 日本語で詳しく
 
 【わかりやすい説明】
-15. gyaruExplanation: ギャル風の親しみやすい説明（「マジで」「ヤバい」など使って）
-16. kindergartenExplanation: 幼稚園児でも理解できる説明（身近な例えで）
+15. gyaruExplanation: ギャル風の親しみやすい説明（「マジで」「ヤバい」など使って）- 日本語で
+16. kindergartenExplanation: 幼稚園児でも理解できる説明（身近な例えで）- 日本語で
+
+※全ての項目を必ず日本語で記述してください。
 ''';
 
       final schema = {
@@ -213,20 +217,20 @@ $code
         'properties': {
           'language': {'type': 'string', 'description': 'プログラミング言語名'},
           'libraries': {'type': 'array', 'items': {'type': 'string'}, 'description': 'ライブラリリスト'},
-          'structure': {'type': 'string', 'description': 'コードの構造説明'},
-          'capabilities': {'type': 'string', 'description': 'このコードができること'},
-          'useCases': {'type': 'string', 'description': '実際の用途や使用例'},
-          'learningPoints': {'type': 'string', 'description': '学習ポイント'},
-          'synonymousCodes': {'type': 'array', 'items': {'type': 'string'}, 'description': '類義のコード'},
-          'antonymousCodes': {'type': 'array', 'items': {'type': 'string'}, 'description': '対義のコード'},
-          'relatedCodes': {'type': 'array', 'items': {'type': 'string'}, 'description': '関連するコード'},
-          'examples': {'type': 'array', 'items': {'type': 'string'}, 'description': '具体例'},
-          'cautions': {'type': 'string', 'description': '使用上の注意'},
-          'trivia': {'type': 'string', 'description': '面白エピソード・トリビア'},
-          'tips': {'type': 'string', 'description': 'ワンポイントアドバイス'},
-          'commonMistakes': {'type': 'string', 'description': 'よくある誤用・間違い'},
-          'gyaruExplanation': {'type': 'string', 'description': 'ギャルによる説明'},
-          'kindergartenExplanation': {'type': 'string', 'description': '幼稚園児向け説明'},
+          'structure': {'type': 'string', 'description': 'コードの構造説明（日本語）'},
+          'capabilities': {'type': 'string', 'description': 'このコードができること（日本語）'},
+          'useCases': {'type': 'string', 'description': '実際の用途や使用例（日本語）'},
+          'learningPoints': {'type': 'string', 'description': '学習ポイント（日本語）'},
+          'synonymousCodes': {'type': 'array', 'items': {'type': 'string'}, 'description': '類義のコード（日本語説明付き）'},
+          'antonymousCodes': {'type': 'array', 'items': {'type': 'string'}, 'description': '対義のコード（日本語説明付き）'},
+          'relatedCodes': {'type': 'array', 'items': {'type': 'string'}, 'description': '関連するコード（日本語説明付き）'},
+          'examples': {'type': 'array', 'items': {'type': 'string'}, 'description': '具体例（日本語説明付き）'},
+          'cautions': {'type': 'string', 'description': '使用上の注意（日本語）'},
+          'trivia': {'type': 'string', 'description': '面白エピソード・トリビア（日本語）'},
+          'tips': {'type': 'string', 'description': 'ワンポイントアドバイス（日本語）'},
+          'commonMistakes': {'type': 'string', 'description': 'よくある誤用・間違い（日本語）'},
+          'gyaruExplanation': {'type': 'string', 'description': 'ギャルによる説明（日本語）'},
+          'kindergartenExplanation': {'type': 'string', 'description': '幼稚園児向け説明（日本語）'},
         },
         'required': ['language', 'structure', 'capabilities', 'useCases', 'learningPoints',
                      'cautions', 'tips', 'commonMistakes', 'gyaruExplanation', 'kindergartenExplanation']
@@ -249,23 +253,101 @@ $code
     }
   }
 
+  /// コードから適切なタイトルを生成
+  Future<String?> _generateTitle(String code, Map<String, dynamic> analysis) async {
+    try {
+      final language = analysis['language'] as String? ?? '不明';
+      final capabilities = analysis['capabilities'] as String? ?? '';
+
+      final prompt = '''
+以下のコードに対して、簡潔でわかりやすいタイトルを日本語で生成してください。
+
+【コード】
+$code
+
+【言語】
+$language
+
+【機能】
+$capabilities
+
+タイトルの条件：
+- 15文字以内
+- コードの主要な機能や目的を表現
+- 関数名やクラス名がある場合はそれを含める
+- 日本語で記述
+
+例：
+- "ユーザー認証処理"
+- "データソート関数"
+- "API通信クラス"
+- "画像アップロード処理"
+
+タイトルのみを返してください（説明は不要）。
+''';
+
+      final schema = {
+        'type': 'object',
+        'properties': {
+          'title': {
+            'type': 'string',
+            'description': 'コードのタイトル（15文字以内、日本語）'
+          },
+        },
+        'required': ['title']
+      };
+
+      final result = await AIClient.instance.generateStructured(
+        prompt: prompt,
+        jsonSchema: schema,
+        mode: AIMode.standard,
+      );
+
+      return result['title'] as String;
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// OCRで読み取ったコードをAIで修正する
   Future<String?> _fixOcrCode(String ocrText) async {
     try {
       final prompt = '''
-以下はOCRで読み取ったコードですが、縦番号（1, 2, 3...）が混入していたり、
-文字認識ミスがある可能性があります。
-プログラミングコードとして正しく動作するように修正してください。
+あなたはプロのプログラマーです。以下はOCR（光学文字認識）で読み取ったコードですが、
+様々な認識エラーが含まれている可能性があります。
+プログラミングコードとして正しく動作するように、丁寧に修正してください。
 
 【OCRで読み取ったテキスト】
 $ocrText
 
-以下の作業を行ってください：
-1. 行頭の縦番号（1, 2, 3, 4...）を削除する
-2. よくあるOCR誤字を修正する（例: l→I、O→0、など）
-3. 構文エラーがあれば修正する
-4. インデントを適切に整える
-5. 不要な空白や改行を削除する
+以下の作業を慎重に行ってください：
+
+1. **行番号の削除**: 行頭の縦番号（1, 2, 3, 4... や 1→、2→など）を完全に削除
+2. **OCR誤字の修正**:
+   - 小文字のl（エル）と数字の1（いち）、大文字のI（アイ）の混同を修正
+   - 大文字のO（オー）と数字の0（ゼロ）の混同を修正
+   - クォート記号（'、"、`）の誤認識を修正
+   - 括弧（()、[]、{}）の誤認識を修正
+   - セミコロン（;）とコロン（:）の混同を修正
+   - ドット（.）とカンマ（,）の混同を修正
+3. **構文チェック**:
+   - 括弧の対応関係を確認し、不足があれば補完
+   - 不要な記号や文字を削除
+   - 明らかな構文エラーを修正
+4. **インデント整形**:
+   - 適切なインデント（スペースまたはタブ）を適用
+   - ネストレベルに応じた整形
+5. **空白・改行の整理**:
+   - 不要な空白や改行を削除
+   - 読みやすさのため必要な空白は保持
+6. **言語特有の修正**:
+   - プログラミング言語の文法に従って修正
+   - キーワードのスペルミスを修正
+
+【重要】
+- コードの機能や動作は変更しないでください
+- 修正後のコードは実行可能な状態にしてください
+- コメント行も可能な限り保持してください
 
 修正後のコードのみを返してください（説明は不要です）。
 ''';
@@ -374,10 +456,18 @@ $ocrText
 
       analysis = await _analyzeCode(code);
 
+      // タイトルが空の場合はAIで生成
+      String finalTitle = title;
+      if (finalTitle.isEmpty && analysis != null) {
+        finalTitle = await _generateTitle(code, analysis) ?? 'コード記録';
+      } else if (finalTitle.isEmpty) {
+        finalTitle = 'コード記録';
+      }
+
       // データベースに保存
       final codeEntryId = await _db.codeEntriesDao.insertCodeEntry(
         CodeEntriesCompanion.insert(
-          title: title.isEmpty ? 'コード記録' : title,
+          title: finalTitle,
           code: code,
           entryType: _entryType,
           // 基本情報
@@ -548,20 +638,20 @@ $ocrText
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         ElevatedButton.icon(
                           onPressed: _takePhoto,
-                          icon: const Icon(Icons.camera_alt),
+                          icon: const Icon(Icons.camera_alt, size: 18),
                           label: const Text('カメラ'),
                         ),
-                        const SizedBox(width: 8),
                         ElevatedButton.icon(
                           onPressed: _pickImages,
-                          icon: const Icon(Icons.photo_library),
+                          icon: const Icon(Icons.photo_library, size: 18),
                           label: const Text('写真'),
                         ),
-                        const Spacer(),
                         if (_sourceImages.isNotEmpty)
                           FilledButton.icon(
                             onPressed: _isAnalyzing ? null : _extractTextFromImages,
@@ -574,7 +664,7 @@ $ocrText
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Icon(Icons.auto_fix_high),
+                                : const Icon(Icons.auto_fix_high, size: 18),
                             label: const Text('テキスト化'),
                           ),
                       ],
@@ -680,7 +770,9 @@ $ocrText
             // コード入力
             TextFormField(
               controller: _codeController,
-              maxLines: 20,
+              minLines: 10,
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
               decoration: const InputDecoration(
                 labelText: 'コード',
                 hintText: 'コードを入力または画像から抽出',

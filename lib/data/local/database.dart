@@ -192,16 +192,20 @@ class AppDatabase extends _$AppDatabase {
       'dictionary_entries': ['created_at', 'updated_at'],
       'dictionary_entry_values': ['created_at', 'updated_at'],
       'daily_memos': ['created_at', 'updated_at'],
+      'daily_memo_entries': ['created_at'],
       'concept_memos': ['created_at', 'updated_at'],
       'concept_dictionaries': ['created_at', 'updated_at'],
       'books': ['created_at', 'updated_at'],
       'reading_memos': ['created_at'],
+      'reading_memo_entries': ['created_at'],
       'reading_reflections': ['created_at'],
       'entry_appendices': ['created_at'],
       'philosophical_dialogues': ['created_at', 'updated_at'],
       'philosophical_messages': ['created_at'],
       'philosophical_concept_extractions': ['created_at'],
       'ai_sessions': ['created_at'],
+      'code_entries': ['created_at', 'updated_at'],
+      'code_entry_entries': ['created_at'],
     };
 
     for (final entry in tables.entries) {
