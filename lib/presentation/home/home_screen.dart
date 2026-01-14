@@ -104,9 +104,9 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 _ArchiveTile(
                   icon: ArchiveIconType.search,
-                  title: '検索',
-                  subtitle: 'まとめて探す',
-                  detail: '種類別・タグ・日付',
+                  title: '検索と分析',
+                  subtitle: 'まとめて探す・学習傾向を分析',
+                  detail: 'キーワード・AI検索・統計分析',
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(

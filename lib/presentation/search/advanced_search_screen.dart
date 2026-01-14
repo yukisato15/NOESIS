@@ -7,7 +7,6 @@ import '../../core/theme/app_palette.dart';
 import '../../data/local/database.dart';
 
 enum SearchMode {
-  keyword, // 通常のキーワード検索
   semantic, // AIセマンティック検索
   timeline, // 時系列分析
   conceptMap, // 関連概念マップ
@@ -22,6 +21,7 @@ class AdvancedSearchScreen extends StatefulWidget {
 
 class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   final AppDatabase _db = AppDatabase();
   final AIClient _aiClient = AIClient.instance;
 
@@ -40,10 +40,12 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
   String? _selectedArchiveType; // dictionary, reading, thinking, daily
 
   bool _isSearching = false;
+  bool _hasSearched = false; // 検索が実行されたかどうか
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     _db.close();
     super.dispose();
   }
@@ -52,8 +54,13 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
 
+    // キーボードを閉じる
+    _searchFocusNode.unfocus();
+    FocusScope.of(context).unfocus();
+
     setState(() {
       _isSearching = true;
+      _hasSearched = false;
       _semanticResults = [];
       _timelineAnalysis = null;
       _conceptMapData = null;
@@ -65,9 +72,6 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
 
       // 2. 検索モードに応じた処理
       switch (_searchMode) {
-        case SearchMode.keyword:
-          await _keywordSearch(query);
-          break;
         case SearchMode.semantic:
           await _semanticSearch(query);
           break;
@@ -87,6 +91,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
     } finally {
       setState(() {
         _isSearching = false;
+        _hasSearched = true;
       });
     }
   }
@@ -190,15 +195,6 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
     }
   }
 
-  Future<void> _keywordSearch(String query) async {
-    _semanticResults = _allResults.where((item) {
-      final title = item['title']?.toString().toLowerCase() ?? '';
-      final body = item['body']?.toString().toLowerCase() ?? '';
-      final q = query.toLowerCase();
-      return title.contains(q) || body.contains(q);
-    }).toList();
-  }
-
   Future<void> _semanticSearch(String query) async {
     if (_allResults.isEmpty) {
       _semanticResults = [];
@@ -276,96 +272,124 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
       ),
       body: Column(
         children: [
-          // 検索バー
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: '検索キーワード...',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              if (mounted) {
-                                setState(() {});
-                              }
-                            },
-                          )
-                        : null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+          // 検索バー（検索後は折りたたみ可能）
+          if (!_hasSearched) ...[
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    decoration: InputDecoration(
+                      hintText: '検索キーワード...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                if (mounted) {
+                                  setState(() {});
+                                }
+                              },
+                            )
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          setState(() {});
+                        }
+                      });
+                    },
+                    onSubmitted: (_) => _performSearch(),
+                  ),
+                  const SizedBox(height: 12),
+                  // 検索モード選択
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _ModeChip(
+                          label: 'AI意味検索',
+                          icon: Icons.auto_awesome,
+                          selected: _searchMode == SearchMode.semantic,
+                          onSelected: () =>
+                              setState(() => _searchMode = SearchMode.semantic),
+                        ),
+                        const SizedBox(width: 8),
+                        _ModeChip(
+                          label: '時系列分析',
+                          icon: Icons.timeline,
+                          selected: _searchMode == SearchMode.timeline,
+                          onSelected: () =>
+                              setState(() => _searchMode = SearchMode.timeline),
+                        ),
+                        const SizedBox(width: 8),
+                        _ModeChip(
+                          label: '概念マップ',
+                          icon: Icons.hub,
+                          selected: _searchMode == SearchMode.conceptMap,
+                          onSelected: () => setState(
+                              () => _searchMode = SearchMode.conceptMap),
+                        ),
+                      ],
                     ),
                   ),
-                  onChanged: (value) {
-                    // setStateをポストフレームコールバックで実行
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
-                        setState(() {});
-                      }
-                    });
-                  },
-                ),
-                const SizedBox(height: 12),
-                // 検索モード選択
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _ModeChip(
-                        label: 'AI意味検索',
-                        icon: Icons.auto_awesome,
-                        selected: _searchMode == SearchMode.semantic,
-                        onSelected: () =>
-                            setState(() => _searchMode = SearchMode.semantic),
-                      ),
-                      const SizedBox(width: 8),
-                      _ModeChip(
-                        label: 'キーワード',
-                        icon: Icons.search,
-                        selected: _searchMode == SearchMode.keyword,
-                        onSelected: () =>
-                            setState(() => _searchMode = SearchMode.keyword),
-                      ),
-                      const SizedBox(width: 8),
-                      _ModeChip(
-                        label: '時系列分析',
-                        icon: Icons.timeline,
-                        selected: _searchMode == SearchMode.timeline,
-                        onSelected: () =>
-                            setState(() => _searchMode = SearchMode.timeline),
-                      ),
-                      const SizedBox(width: 8),
-                      _ModeChip(
-                        label: '概念マップ',
-                        icon: Icons.hub,
-                        selected: _searchMode == SearchMode.conceptMap,
-                        onSelected: () => setState(
-                            () => _searchMode = SearchMode.conceptMap),
-                      ),
-                    ],
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: _isSearching ? null : _performSearch,
+                    icon: _isSearching
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.search),
+                    label: Text(_isSearching ? '検索中...' : '検索'),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+          ] else
+            // 検索後はコンパクトなヘッダー
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                border: Border(
+                  bottom: BorderSide(
+                    color: Theme.of(context).dividerColor,
+                    width: 1,
                   ),
                 ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  onPressed: _isSearching ? null : _performSearch,
-                  icon: _isSearching
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.search),
-                  label: Text(_isSearching ? '検索中...' : '検索'),
-                ),
-              ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '検索: ${_searchController.text}',
+                      style: Theme.of(context).textTheme.titleSmall,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit, size: 20),
+                    onPressed: () {
+                      setState(() {
+                        _hasSearched = false;
+                      });
+                    },
+                    tooltip: '検索条件を変更',
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Divider(height: 1),
           // 結果表示
           Expanded(
             child: _buildResultsView(),
@@ -408,7 +432,6 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
     }
 
     switch (_searchMode) {
-      case SearchMode.keyword:
       case SearchMode.semantic:
         return _buildSemanticResults();
       case SearchMode.timeline:
@@ -429,9 +452,46 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
       itemCount: _semanticResults.length,
       itemBuilder: (context, index) {
         final item = _semanticResults[index];
-        return _ResultTile(item: item);
+        return _ResultTile(
+          item: item,
+          onTap: () => _navigateToDetail(item),
+        );
       },
     );
+  }
+
+  Future<void> _navigateToDetail(Map<String, dynamic> item) async {
+    final shouldNavigate = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('詳細を表示'),
+        content: Text('「${item['title']}」の詳細ページに移動しますか?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('表示'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldNavigate != true || !mounted) return;
+
+    // itemのIDから詳細画面に遷移
+    final id = item['id'] as String;
+    final type = item['type'] as String;
+
+    // TODO: 各タイプに応じた詳細画面に遷移
+    // 現在は未実装なので、Snackbarで通知
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('詳細画面への遷移機能は実装中です (ID: $id, Type: $type)')),
+      );
+    }
   }
 
   Widget _buildTimelineView() {
@@ -502,7 +562,30 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
                   const SizedBox(height: 12),
                   Text(
                     '該当項目: ${itemIds.length}件',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: itemIds.map((itemId) {
+                      final relatedItem = _semanticResults.firstWhere(
+                        (item) => item['id'] == itemId,
+                        orElse: () => <String, dynamic>{},
+                      );
+                      if (relatedItem.isEmpty) return const SizedBox.shrink();
+
+                      return ActionChip(
+                        avatar: const Icon(Icons.article, size: 16),
+                        label: Text(
+                          relatedItem['title'] as String,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        onPressed: () => _navigateToDetail(relatedItem),
+                      );
+                    }).toList(),
                   ),
                 ],
               ),
@@ -598,7 +681,30 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
                   const SizedBox(height: 8),
                   Text(
                     '関連項目: ${itemIds.length}件',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: itemIds.map((itemId) {
+                      final relatedItem = _semanticResults.firstWhere(
+                        (item) => item['id'] == itemId,
+                        orElse: () => <String, dynamic>{},
+                      );
+                      if (relatedItem.isEmpty) return const SizedBox.shrink();
+
+                      return ActionChip(
+                        avatar: const Icon(Icons.article, size: 16),
+                        label: Text(
+                          relatedItem['title'] as String,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        onPressed: () => _navigateToDetail(relatedItem),
+                      );
+                    }).toList(),
                   ),
                 ],
               ),
@@ -719,8 +825,9 @@ class _ModeChip extends StatelessWidget {
 
 class _ResultTile extends StatelessWidget {
   final Map<String, dynamic> item;
+  final VoidCallback? onTap;
 
-  const _ResultTile({required this.item});
+  const _ResultTile({required this.item, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -775,9 +882,7 @@ class _ResultTile extends StatelessWidget {
               ),
           ],
         ),
-        onTap: () {
-          // TODO: 詳細画面へ遷移
-        },
+        onTap: onTap,
       ),
     );
   }

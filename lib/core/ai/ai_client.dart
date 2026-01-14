@@ -145,7 +145,18 @@ class AIClient {
     required List<Map<String, dynamic>> corpus,
   }) async {
     try {
-      final corpusJson = jsonEncode(corpus);
+      // DateTimeを文字列に変換
+      final sanitizedCorpus = corpus.map((item) {
+        final sanitized = Map<String, dynamic>.from(item);
+        sanitized.forEach((key, value) {
+          if (value is DateTime) {
+            sanitized[key] = value.toIso8601String();
+          }
+        });
+        return sanitized;
+      }).toList();
+
+      final corpusJson = jsonEncode(sanitizedCorpus);
       final prompt = '''
 あなたは意味検索のエキスパートです。
 以下のクエリに意味的に関連するアイテムのIDを抽出してください。
@@ -191,7 +202,18 @@ $corpusJson
     required List<Map<String, dynamic>> chronologicalItems,
   }) async {
     try {
-      final itemsJson = jsonEncode(chronologicalItems);
+      // DateTimeを文字列に変換
+      final sanitizedItems = chronologicalItems.map((item) {
+        final sanitized = Map<String, dynamic>.from(item);
+        sanitized.forEach((key, value) {
+          if (value is DateTime) {
+            sanitized[key] = value.toIso8601String();
+          }
+        });
+        return sanitized;
+      }).toList();
+
+      final itemsJson = jsonEncode(sanitizedItems);
       final prompt = '''
 あなたは思考分析のエキスパートです。
 以下のテーマについて、時系列に沿った思考の変遷を分析してください。
@@ -252,7 +274,18 @@ $itemsJson
     required List<Map<String, dynamic>> searchResults,
   }) async {
     try {
-      final resultsJson = jsonEncode(searchResults);
+      // DateTimeを文字列に変換
+      final sanitizedResults = searchResults.map((item) {
+        final sanitized = Map<String, dynamic>.from(item);
+        sanitized.forEach((key, value) {
+          if (value is DateTime) {
+            sanitized[key] = value.toIso8601String();
+          }
+        });
+        return sanitized;
+      }).toList();
+
+      final resultsJson = jsonEncode(sanitizedResults);
       final prompt = '''
 あなたは概念抽出のエキスパートです。
 以下の検索結果から、関連する概念とその関係性を抽出してください。

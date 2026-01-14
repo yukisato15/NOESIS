@@ -8,6 +8,7 @@ import '../../core/widgets/selectable_context_text.dart';
 import '../../core/theme/app_palette.dart';
 import '../../data/local/database.dart';
 import '../code/code_entry_detail_screen.dart';
+import '../dictionary/dictionary_entry_detail_screen.dart';
 import 'advanced_search_screen.dart';
 import 'analysis_screen.dart';
 
@@ -21,10 +22,11 @@ class SearchScreen extends ConsumerStatefulWidget {
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends ConsumerState<SearchScreen> {
+class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final AppDatabase _db = AppDatabase();
   final FocusNode _focusNode = FocusNode();
+  late TabController _tabController;
 
   List<Map<String, dynamic>> _allResults = [];
   List<Map<String, dynamic>> _filteredResults = [];
@@ -45,11 +47,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _loadAllData();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
     _focusNode.dispose();
     _db.close();
@@ -67,18 +71,41 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _allCategories = {};
       _allTags = {};
 
-      // 辞書登録ワード検索（新しいDictionaryDefinitionsテーブル）
-      final dictDefinitions = await _db.select(_db.dictionaryDefinitions).get();
-      for (final def in dictDefinitions) {
+      // 辞書登録ワード検索（個別の単語を検索対象に）
+      final dictEntries = await _db.select(_db.dictionaryEntries).get();
+      print('[SearchScreen] 辞書エントリー件数: ${dictEntries.length}');
+      for (final entry in dictEntries) {
+        // この単語のフィールド値を取得
+        final entryValues = await (_db.select(_db.dictionaryEntryValues)
+              ..where((ev) => ev.entryId.equals(entry.id)))
+            .get();
+
+        // フィールド値を結合してbodyとして使用
+        final bodyParts = <String>[];
+        for (final ev in entryValues) {
+          if (ev.value.isNotEmpty) {
+            bodyParts.add(ev.value);
+          }
+        }
+
+        if (entry.category != null) _allCategories.add(entry.category!);
+        if (entry.tags != null) {
+          try {
+            final tags = (jsonDecode(entry.tags!) as List).cast<String>();
+            _allTags.addAll(tags);
+          } catch (_) {}
+        }
+
         _allResults.add({
-          'id': 'dict_def_${def.id}',
-          'type': 'dictionary_definition',
-          'title': def.name,
-          'body': def.description ?? '',
-          'category': def.category,
-          'tags': null,
-          'createdAt': def.createdAt,
-          'updatedAt': def.updatedAt,
+          'id': 'dict_entry_${entry.id}',
+          'type': 'dictionary_entry',
+          'title': entry.headword,
+          'body': bodyParts.join(' / '),
+          'category': entry.category,
+          'tags': entry.tags,
+          'dictionaryId': entry.dictionaryId, // 詳細画面のナビゲーションに必要
+          'createdAt': entry.createdAt,
+          'updatedAt': entry.updatedAt,
         });
       }
 
@@ -203,6 +230,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         });
       }
 
+      print('[SearchScreen] 全検索結果件数: ${_allResults.length}');
       _applyFiltersAndSort();
 
       setState(() {
@@ -465,43 +493,33 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             onPressed: _isReloading ? null : () => _loadAllData(silent: true),
             tooltip: '更新',
           ),
-          IconButton(
-            icon: const Icon(Icons.analytics),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const AnalysisScreen(),
-                ),
-              );
-            },
-            tooltip: '分析',
-          ),
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const AdvancedSearchScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.auto_awesome),
-            label: const Text('AI検索'),
-            style: TextButton.styleFrom(
-              foregroundColor: theme.colorScheme.primary,
-            ),
-          ),
           const SizedBox(width: 8),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'キーワード検索', icon: Icon(Icons.search, size: 20)),
+            Tab(text: 'AI検索', icon: Icon(Icons.auto_awesome, size: 20)),
+            Tab(text: '統計分析', icon: Icon(Icons.analytics, size: 20)),
+          ],
+        ),
       ),
-      body: Focus(
-        autofocus: true,
-        focusNode: _focusNode,
-        onFocusChange: (hasFocus) {
-          if (hasFocus) {
-            _loadAllData(silent: true);
-          }
-        },
-        child: Column(
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // キーワード検索タブ
+          _buildKeywordSearchTab(theme),
+          // AI検索タブ
+          _buildAISearchTab(),
+          // 統計分析タブ
+          _buildAnalysisTab(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKeywordSearchTab(ThemeData theme) {
+    return Column(
           children: [
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -693,6 +711,78 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
               ),
           ],
+        );
+  }
+
+  Widget _buildAISearchTab() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.auto_awesome, size: 64, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(height: 16),
+            Text(
+              'AI検索',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '意味からコンテンツを探します',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AdvancedSearchScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('AI検索を開始'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnalysisTab() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.analytics, size: 64, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(height: 16),
+            Text(
+              '統計分析',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '学習傾向をグラフで可視化します',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AnalysisScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.analytics),
+              label: const Text('統計分析を開始'),
+            ),
+          ],
         ),
       ),
     );
@@ -713,6 +803,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             builder: (context) => CodeEntryDetailScreen(entryId: entityId),
           ),
         ).then((_) => _loadAllData(silent: true));
+        break;
+      case 'dictionary_entry':
+        final dictionaryId = result['dictionaryId'] as int?;
+        if (dictionaryId != null) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => DictionaryEntryDetailScreen(
+                dictionaryId: dictionaryId,
+                entryId: entityId,
+              ),
+            ),
+          ).then((_) => _loadAllData(silent: true));
+        }
         break;
       // 他のタイプは今後実装
       default:
@@ -745,7 +848,7 @@ class _ResultTile extends StatelessWidget {
     String typeLabel;
 
     switch (type) {
-      case 'dictionary_definition':
+      case 'dictionary_entry':
         color = AppPalette.dictionaryGeneral;
         icon = Icons.book;
         typeLabel = '辞書登録ワード';

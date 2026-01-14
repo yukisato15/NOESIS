@@ -52,7 +52,7 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
 
     try {
       // アーカイブ別カウント
-      final dictCount = await _db.select(_db.dictionaryDefinitions).get();
+      final dictEntriesCount = await _db.select(_db.dictionaryEntries).get(); // 個別単語をカウント
       final conceptDictCount = await _db.select(_db.conceptDictionaries).get();
       final conceptMemoCount = await _db.conceptMemosDao.getAllConceptMemos();
       final dailyMemoCount = await _db.dailyMemosDao.getAllDailyMemos();
@@ -61,7 +61,7 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
       final codeEntriesCount = await _db.codeEntriesDao.getAllCodeEntries();
 
       _archiveCounts = {
-        '辞書': dictCount.length,
+        '辞書': dictEntriesCount.length, // 個別単語数
         '概念辞書': conceptDictCount.length,
         '思索メモ': conceptMemoCount.length,
         '日常メモ': dailyMemoCount.length,
@@ -72,6 +72,18 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
 
       // タグ頻度分析
       _tagFrequency = {};
+      // 辞書エントリーのタグ
+      for (final entry in dictEntriesCount) {
+        if (entry.tags != null) {
+          try {
+            final tags = (jsonDecode(entry.tags!) as List).cast<String>();
+            for (final tag in tags) {
+              _tagFrequency[tag] = (_tagFrequency[tag] ?? 0) + 1;
+            }
+          } catch (_) {}
+        }
+      }
+      // 概念辞書のタグ
       for (final dict in conceptDictCount) {
         if (dict.tags != null) {
           try {
@@ -82,6 +94,7 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
           } catch (_) {}
         }
       }
+      // 日常メモのタグ
       for (final memo in dailyMemoCount) {
         if (memo.tags != null) {
           try {
@@ -103,6 +116,12 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
       }
 
       // 各アーカイブの作成日をカウント
+      for (final entry in dictEntriesCount) {
+        final key = DateFormat('MM月').format(entry.createdAt);
+        if (_monthlyActivity.containsKey(key)) {
+          _monthlyActivity[key] = _monthlyActivity[key]! + 1;
+        }
+      }
       for (final dict in conceptDictCount) {
         final key = DateFormat('MM月').format(dict.createdAt);
         if (_monthlyActivity.containsKey(key)) {
