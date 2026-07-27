@@ -1113,7 +1113,7 @@ ${raw.isEmpty ? _summaryController.text.trim() : raw}
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<SpotPriceRange?>(
-                  value: _priceRange,
+                  initialValue: _priceRange,
                   decoration: const InputDecoration(labelText: '価格帯'),
                   items: const [
                     DropdownMenuItem(value: null, child: Text('未設定')),
@@ -1137,7 +1137,7 @@ ${raw.isEmpty ? _summaryController.text.trim() : raw}
                   onChanged: (value) => setState(() => _priceRange = value),
                 ),
                 DropdownButtonFormField<bool?>(
-                  value: _hasWifi,
+                  initialValue: _hasWifi,
                   decoration: const InputDecoration(labelText: 'Wi-Fi'),
                   items: const [
                     DropdownMenuItem(value: null, child: Text('未設定')),
@@ -1148,7 +1148,7 @@ ${raw.isEmpty ? _summaryController.text.trim() : raw}
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<bool?>(
-                  value: _hasPower,
+                  initialValue: _hasPower,
                   decoration: const InputDecoration(labelText: '電源'),
                   items: const [
                     DropdownMenuItem(value: null, child: Text('未設定')),

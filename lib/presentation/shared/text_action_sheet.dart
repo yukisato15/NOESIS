@@ -69,6 +69,10 @@ Future<void> showTextActionSheet(BuildContext context, String text) async {
     },
   );
 
+  if (!context.mounted) {
+    return;
+  }
+
   switch (action) {
     case _TextAction.copy:
       await handleTextCopy(context, value);

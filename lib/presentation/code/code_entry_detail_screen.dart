@@ -469,63 +469,6 @@ ${_learningLevel.displayName}が理解できるように、丁寧に答えてく
     }
   }
 
-  /// タイトル編集
-  Future<void> _editTitle() async {
-    final controller = TextEditingController(text: _entry!.title);
-
-    final newTitle = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('タイトル編集'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'タイトル',
-            border: OutlineInputBorder(),
-          ),
-          maxLength: 50,
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('キャンセル'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
-    );
-
-    if (newTitle != null && newTitle.isNotEmpty && newTitle != _entry!.title) {
-      try {
-        await _db.codeEntriesDao.updateCodeEntryCompanion(
-          widget.entryId,
-          CodeEntriesCompanion(
-            title: Value(newTitle),
-          ),
-        );
-
-        await _loadEntryAndHistory();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('タイトルを更新しました')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('更新に失敗しました: $e')),
-          );
-        }
-      }
-    }
-
-    controller.dispose();
-  }
 
   String _getEntryTypeLabel(CodeEntryEntryType type) {
     switch (type) {

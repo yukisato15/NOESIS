@@ -76,7 +76,7 @@ class _DictionaryArchiveSettingsScreenState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButtonFormField<DictionaryDefinition>(
-                    value: source,
+                    initialValue: source,
                     decoration: const InputDecoration(
                       labelText: '統合元（削除されます）',
                     ),
@@ -99,7 +99,7 @@ class _DictionaryArchiveSettingsScreenState
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<DictionaryDefinition>(
-                    value: target,
+                    initialValue: target,
                     decoration: const InputDecoration(
                       labelText: '統合先',
                     ),
@@ -138,6 +138,9 @@ class _DictionaryArchiveSettingsScreenState
       return;
     }
 
+    if (!mounted) {
+      return;
+    }
     final finalConfirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -187,7 +190,7 @@ class _DictionaryArchiveSettingsScreenState
             return AlertDialog(
               title: const Text('辞書項目のカスタマイズ'),
               content: DropdownButtonFormField<DictionaryDefinition>(
-                value: target,
+                initialValue: target,
                 decoration: const InputDecoration(labelText: '対象の辞書'),
                 items: _dictionaries
                     .map(
@@ -221,6 +224,9 @@ class _DictionaryArchiveSettingsScreenState
       return;
     }
 
+    if (!mounted) {
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => DictionarySettingsScreen(
@@ -249,7 +255,7 @@ class _DictionaryArchiveSettingsScreenState
             return AlertDialog(
               title: const Text('辞書の削除'),
               content: DropdownButtonFormField<DictionaryDefinition>(
-                value: target,
+                initialValue: target,
                 decoration: const InputDecoration(labelText: '削除する辞書'),
                 items: _customDictionaries
                     .map(
@@ -283,6 +289,9 @@ class _DictionaryArchiveSettingsScreenState
       return;
     }
 
+    if (!mounted) {
+      return;
+    }
     final finalConfirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {

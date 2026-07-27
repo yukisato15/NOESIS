@@ -105,20 +105,6 @@ class _ArchiveTargetListScreenState extends State<ArchiveTargetListScreen> {
     return categories;
   }
 
-  List<String> _decodeTags(String? raw) {
-    if (raw == null || raw.trim().isEmpty) {
-      return [];
-    }
-    try {
-      return (jsonDecode(raw) as List).map((e) => e.toString()).toList();
-    } catch (_) {
-      return raw
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {

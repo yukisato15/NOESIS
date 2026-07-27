@@ -1130,56 +1130,6 @@ critical_only 話者が含まれる場合:
     );
   }
 
-  Widget _buildInputTypeSelector() {
-    return SegmentedButton<DialogueInputType>(
-      segments: const [
-        ButtonSegment(value: DialogueInputType.text, label: Text('テキスト')),
-        ButtonSegment(value: DialogueInputType.image, label: Text('画像')),
-      ],
-      selected: {_inputType},
-      showSelectedIcon: false,
-      style: ButtonStyle(
-        visualDensity: VisualDensity.compact,
-        padding: WidgetStateProperty.all(
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        ),
-      ),
-      onSelectionChanged: (selection) {
-        setState(() {
-          _inputType = selection.first;
-          if (_inputType != DialogueInputType.image) {
-            _selectedImagePath = null;
-          }
-        });
-      },
-    );
-  }
-
-  Widget _buildAIModeSelector() {
-    final availableModes = AIMode.values
-        .where(
-          (mode) => mode != AIMode.withSearch || SearchClient.canUseWebSearch,
-        )
-        .toList();
-    return SegmentedButton<AIMode>(
-      segments: availableModes
-          .map((mode) => ButtonSegment(value: mode, label: Text(mode.label)))
-          .toList(),
-      selected: {_selectedMode},
-      showSelectedIcon: false,
-      style: ButtonStyle(
-        visualDensity: VisualDensity.compact,
-        padding: WidgetStateProperty.all(
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        ),
-      ),
-      onSelectionChanged: (selection) {
-        setState(() {
-          _selectedMode = selection.first;
-        });
-      },
-    );
-  }
 
   Future<void> _showAIModeSheet() async {
     final availableModes = AIMode.values
