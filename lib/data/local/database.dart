@@ -2191,7 +2191,7 @@ class AppDatabase extends _$AppDatabase {
       }
 
       if (from < 15) {
-        await m.addColumn(talkingTopics, talkingTopics.referenceUrls);
+        await safeAddColumn(talkingTopics, talkingTopics.referenceUrls);
       }
 
       if (from < 16) {
@@ -2202,18 +2202,18 @@ class AppDatabase extends _$AppDatabase {
       }
 
       if (from < 17) {
-        await m.addColumn(spots, spots.latitude);
-        await m.addColumn(spots, spots.longitude);
-        await m.addColumn(spots, spots.placeId);
-        await m.addColumn(spots, spots.geocodeSource);
-        await m.addColumn(spots, spots.mapLabel);
-        await m.addColumn(spots, spots.isMapVisible);
-        await m.addColumn(spots, spots.mapPinColor);
+        await safeAddColumn(spots, spots.latitude);
+        await safeAddColumn(spots, spots.longitude);
+        await safeAddColumn(spots, spots.placeId);
+        await safeAddColumn(spots, spots.geocodeSource);
+        await safeAddColumn(spots, spots.mapLabel);
+        await safeAddColumn(spots, spots.isMapVisible);
+        await safeAddColumn(spots, spots.mapPinColor);
       }
 
       if (from < 18) {
-        await m.addColumn(spots, spots.photoPath);
-        await m.addColumn(spotVisits, spotVisits.photoPath);
+        await safeAddColumn(spots, spots.photoPath);
+        await safeAddColumn(spotVisits, spotVisits.photoPath);
       }
 
       if (from < 19) {
