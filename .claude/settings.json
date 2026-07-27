@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter run:*)",
+      "Bash(xcrun simctl:*)",
+      "Bash(pbcopy)",
+      "Bash(flutter attach:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:pub.dev)",
+      "Bash(grep -A3 \"name: record$\\\\|name: record_ios\" /Users/yukisato/アプリ作成/noesis_flutter/pubspec.lock)",
+      "Bash(grep -r \"record\\\\|AudioRecorder\\\\|hasPermission\" lib/ --include=*.dart -l)",
+      "Read(//Users/yukisato/.pub-cache/**)",
+      "Bash(grep -r \"IosRecordConfig\\\\|IosAudioSession\\\\|mixWithOthers\\\\|AVAudioSession\" ~/.pub-cache/hosted/pub.dev/record_platform_interface-*/lib/)"
+    ]
+  }
+}

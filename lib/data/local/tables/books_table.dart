@@ -38,6 +38,9 @@ class Books extends Table {
   /// 一般的なレビュー要約（AI補完）
   TextColumn get reviewSummary => text().nullable()();
 
+  /// 表紙画像のローカル保存パス
+  TextColumn get coverImagePath => text().nullable()();
+
   // ===== 自動取得 =====
   /// 登録日時（＝読み始めた日時）
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();

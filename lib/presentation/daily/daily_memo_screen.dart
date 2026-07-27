@@ -293,7 +293,7 @@ class _DailyMemoScreenState extends ConsumerState<DailyMemoScreen> {
                                     ? Icons.note_outlined
                                     : Icons.search_off,
                                 size: 64,
-                                color: theme.colorScheme.secondary.withOpacity(0.4),
+                                color: theme.colorScheme.secondary.withValues(alpha: 0.4),
                               ),
                               const SizedBox(height: 16),
                               Text(
@@ -301,7 +301,7 @@ class _DailyMemoScreenState extends ConsumerState<DailyMemoScreen> {
                                     ? '日常メモがありません'
                                     : 'メモが見つかりません',
                                 style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: theme.colorScheme.secondary.withOpacity(0.6),
+                                  color: theme.colorScheme.secondary.withValues(alpha: 0.6),
                                 ),
                               ),
                               if (_allMemos.isEmpty) ...[

@@ -11,7 +11,7 @@ import 'dictionary_create_screen.dart';
 import 'dictionary_archive_settings_screen.dart';
 import 'dictionary_entries_screen.dart';
 import 'dictionary_entry_detail_screen.dart';
-import 'dictionary_settings_screen.dart';
+
 import '../shared/surface_field.dart';
 
 enum SortField { headword, createdAt, updatedAt }
@@ -424,7 +424,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
                 Icon(
                   Icons.error_outline,
                   size: 64,
-                  color: theme.colorScheme.error.withOpacity(0.5),
+                  color: theme.colorScheme.error.withValues(alpha: 0.5),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -458,13 +458,13 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
               Icon(
                 Icons.menu_book_outlined,
                 size: 80,
-                color: theme.colorScheme.secondary.withOpacity(0.3),
+                color: theme.colorScheme.secondary.withValues(alpha: 0.3),
               ),
               const SizedBox(height: 24),
               Text(
                 '辞書がありません',
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: theme.colorScheme.secondary.withOpacity(0.6),
+                  color: theme.colorScheme.secondary.withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -537,7 +537,7 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
               tabAlignment: TabAlignment.start,
               indicatorColor: AppPalette.dictionaryGeneral,
               labelColor: AppPalette.dictionaryGeneral,
-              unselectedLabelColor: theme.colorScheme.secondary.withOpacity(0.6),
+              unselectedLabelColor: theme.colorScheme.secondary.withValues(alpha: 0.6),
               labelStyle: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
@@ -595,6 +595,19 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
   }
 
   Widget _buildAllEntriesView(ThemeData theme) {
+    Future<void> openEntry(DictionaryEntry entry) async {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DictionaryEntryDetailScreen(
+            dictionaryId: entry.dictionaryId,
+            entryId: entry.id,
+            database: _db,
+          ),
+        ),
+      );
+      _loadAllEntries();
+    }
+
     return Column(
       children: [
         Container(
@@ -643,13 +656,13 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
                       Icon(
                         Icons.search_off,
                         size: 64,
-                        color: theme.colorScheme.secondary.withOpacity(0.4),
+                        color: theme.colorScheme.secondary.withValues(alpha: 0.4),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         'エントリが見つかりません',
                         style: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.secondary.withOpacity(0.6),
+                          color: theme.colorScheme.secondary.withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -669,50 +682,53 @@ class _DictionaryScreenState extends ConsumerState<DictionaryScreen>
                         vertical: 8,
                       ),
                       child: ListTile(
-                        title: SelectableContextText(
-                          text: entry.headword,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        title: SizedBox(
+                          width: double.infinity,
+                          child: SelectableContextText(
+                            text: entry.headword,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            onTap: () => openEntry(entry),
+                          ),
                         ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SelectableContextText(
-                              text: dict.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: AppPalette.dictionaryGeneral
-                                    .withOpacity(0.7),
+                            SizedBox(
+                              width: double.infinity,
+                              child: SelectableContextText(
+                                text: dict.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: AppPalette.dictionaryGeneral
+                                      .withValues(alpha: 0.7),
+                                ),
+                                onTap: () => openEntry(entry),
                               ),
                             ),
                             if (entry.category != null &&
                                 entry.category!.isNotEmpty)
-                              SelectableContextText(
-                                text: 'カテゴリ: ${entry.category}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodySmall,
+                              SizedBox(
+                                width: double.infinity,
+                                child: SelectableContextText(
+                                  text: 'カテゴリ: ${entry.category}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall,
+                                  onTap: () => openEntry(entry),
+                                ),
                               ),
                           ],
                         ),
                         trailing: Text(
                           '${entry.createdAt.year}/${entry.createdAt.month}/${entry.createdAt.day}',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.secondary.withOpacity(0.6),
+                            color: theme.colorScheme.secondary.withValues(alpha: 0.6),
                           ),
                         ),
                         onTap: () async {
-                          await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => DictionaryEntryDetailScreen(
-                                dictionaryId: entry.dictionaryId,
-                                entryId: entry.id,
-                                database: _db,
-                              ),
-                            ),
-                          );
-                          _loadAllEntries();
+                          await openEntry(entry);
                         },
                       ),
                     );

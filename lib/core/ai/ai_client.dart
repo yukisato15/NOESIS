@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dart_openai/dart_openai.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'ai_mode.dart';
 import 'search_client.dart';
@@ -8,30 +9,39 @@ import 'search_client.dart';
 class AIClient {
   static AIClient? _instance;
   final String _model;
+  final bool _isConfigured;
 
-  AIClient._({String model = 'gpt-4o'}) : _model = model;
+  AIClient._({String model = 'gpt-4o', bool isConfigured = true})
+    : _model = model,
+      _isConfigured = isConfigured;
 
   /// シングルトンインスタンスを取得
   static AIClient get instance {
-    if (_instance == null) {
-      throw Exception('AIClient not initialized. Call AIClient.initialize() first.');
-    }
-    return _instance!;
+    return _instance ??= AIClient._(isConfigured: false);
   }
+
+  static bool get isConfigured => instance._isConfigured;
 
   /// アプリ起動時に初期化（main.dartから呼ぶ）
   static void initialize() {
     final apiKey = dotenv.env['OPENAI_API_KEY'];
     if (apiKey == null || apiKey.isEmpty) {
-      throw Exception('OPENAI_API_KEY not found in .env file');
+      debugPrint(
+        '[AIClient] OPENAI_API_KEY is not configured. AI features are disabled.',
+      );
+      _instance = AIClient._(isConfigured: false);
+      return;
     }
     OpenAI.apiKey = apiKey;
+    // Whisper や長めの応答で 30 秒デフォルトだとすぐにタイムアウトする。
+    OpenAI.requestsTimeOut = const Duration(minutes: 3);
     _instance = AIClient._();
   }
 
   /// テスト用に任意のAPIキーで初期化
   static void initializeWithKey(String apiKey, {String model = 'gpt-4o'}) {
     OpenAI.apiKey = apiKey;
+    OpenAI.requestsTimeOut = const Duration(minutes: 3);
     _instance = AIClient._(model: model);
   }
 
@@ -41,21 +51,25 @@ class AIClient {
     required Map<String, dynamic> jsonSchema,
     AIMode mode = AIMode.standard,
   }) async {
+    _ensureConfigured();
     try {
       String enhancedPrompt = prompt;
 
       // Web検索モードの場合、検索結果を追加
       if (mode == AIMode.withSearch) {
+        _ensureSearchConfigured();
         final searchQuery = _extractSearchQuery(prompt);
-        print('[AIClient] 検索クエリ: $searchQuery');
+        debugPrint('[AIClient] 検索クエリ: $searchQuery');
 
         final searchResults = await SearchClient.instance.search(
           searchQuery,
           maxResults: 5,
         );
-        print('[AIClient] 検索結果件数: ${searchResults.length}件');
+        debugPrint('[AIClient] 検索結果件数: ${searchResults.length}件');
 
-        final searchContext = SearchClient.instance.formatSearchResults(searchResults);
+        final searchContext = SearchClient.instance.formatSearchResults(
+          searchResults,
+        );
         enhancedPrompt = '$prompt\n\n$searchContext';
       }
 
@@ -69,7 +83,8 @@ class AIClient {
             role: OpenAIChatMessageRole.user,
             content: [
               OpenAIChatCompletionChoiceMessageContentItemModel.text(
-                  '$enhancedPrompt\n\nPlease respond in JSON format matching this schema: ${jsonSchema.toString()}'),
+                '$enhancedPrompt\n\nPlease respond in JSON format matching this schema: ${jsonSchema.toString()}',
+              ),
             ],
           ),
         ],
@@ -122,6 +137,7 @@ class AIClient {
   Future<String> chat({
     required List<OpenAIChatCompletionChoiceMessageModel> messages,
   }) async {
+    _ensureConfigured();
     try {
       final response = await OpenAI.instance.chat.create(
         model: _model,
@@ -157,7 +173,8 @@ class AIClient {
       }).toList();
 
       final corpusJson = jsonEncode(sanitizedCorpus);
-      final prompt = '''
+      final prompt =
+          '''
 あなたは意味検索のエキスパートです。
 以下のクエリに意味的に関連するアイテムのIDを抽出してください。
 
@@ -182,10 +199,10 @@ $corpusJson
           'properties': {
             'related_ids': {
               'type': 'array',
-              'items': {'type': 'string'}
-            }
+              'items': {'type': 'string'},
+            },
           },
-          'required': ['related_ids']
+          'required': ['related_ids'],
         },
       );
 
@@ -214,7 +231,8 @@ $corpusJson
       }).toList();
 
       final itemsJson = jsonEncode(sanitizedItems);
-      final prompt = '''
+      final prompt =
+          '''
 あなたは思考分析のエキスパートです。
 以下のテーマについて、時系列に沿った思考の変遷を分析してください。
 
@@ -251,15 +269,15 @@ $itemsJson
                   'period': {'type': 'string'},
                   'items': {
                     'type': 'array',
-                    'items': {'type': 'string'}
+                    'items': {'type': 'string'},
                   },
-                  'characteristics': {'type': 'string'}
-                }
-              }
+                  'characteristics': {'type': 'string'},
+                },
+              },
             },
-            'evolution': {'type': 'string'}
+            'evolution': {'type': 'string'},
           },
-          'required': ['summary', 'phases', 'evolution']
+          'required': ['summary', 'phases', 'evolution'],
         },
       );
 
@@ -286,7 +304,8 @@ $itemsJson
       }).toList();
 
       final resultsJson = jsonEncode(sanitizedResults);
-      final prompt = '''
+      final prompt =
+          '''
 あなたは概念抽出のエキスパートです。
 以下の検索結果から、関連する概念とその関係性を抽出してください。
 
@@ -328,10 +347,10 @@ $resultsJson
                   'category': {'type': 'string'},
                   'item_ids': {
                     'type': 'array',
-                    'items': {'type': 'string'}
-                  }
-                }
-              }
+                    'items': {'type': 'string'},
+                  },
+                },
+              },
             },
             'relations': {
               'type': 'array',
@@ -340,18 +359,34 @@ $resultsJson
                 'properties': {
                   'from': {'type': 'string'},
                   'to': {'type': 'string'},
-                  'type': {'type': 'string'}
-                }
-              }
-            }
+                  'type': {'type': 'string'},
+                },
+              },
+            },
           },
-          'required': ['concepts', 'relations']
+          'required': ['concepts', 'relations'],
         },
       );
 
       return response;
     } catch (e) {
       throw Exception('Concept extraction failed: $e');
+    }
+  }
+
+  void _ensureConfigured() {
+    if (!_isConfigured) {
+      throw Exception(
+        'AI is not configured. Add OPENAI_API_KEY to .env to use AI features.',
+      );
+    }
+  }
+
+  void _ensureSearchConfigured() {
+    if (!SearchClient.isInitialized || !SearchClient.instance.isAvailable) {
+      throw Exception(
+        'Web search mode is not configured. Add SEARCH_PROXY_BASE_URL or GOOGLE_API_KEY + GOOGLE_SEARCH_ENGINE_ID to .env.',
+      );
     }
   }
 

@@ -112,6 +112,23 @@ class _DictionaryEntriesScreenState
     }
   }
 
+  Future<void> _openEntry(DictionaryEntry entry) async {
+    if (_selectionMode) {
+      _toggleSelection(entry.id);
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DictionaryEntryDetailScreen(
+          dictionaryId: widget.dictionaryId,
+          entryId: entry.id,
+          database: db,
+        ),
+      ),
+    );
+    _load();
+  }
+
   Future<void> _moveSelectedEntries() async {
     if (_selectedIds.isEmpty) {
       return;
@@ -285,7 +302,7 @@ class _DictionaryEntriesScreenState
                   Icon(
                     Icons.menu_book_outlined,
                     size: 64,
-                    color: theme.colorScheme.secondary.withOpacity(0.4),
+                    color: theme.colorScheme.secondary.withValues(alpha: 0.4),
                   ),
                   const SizedBox(height: 16),
                   Text('エントリがありません', style: theme.textTheme.bodyLarge),
@@ -309,10 +326,14 @@ class _DictionaryEntriesScreenState
                             onChanged: (_) => _toggleSelection(entry.id),
                           )
                         : null,
-                    title: SelectableContextText(
-                      text: entry.headword,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    title: SizedBox(
+                      width: double.infinity,
+                      child: SelectableContextText(
+                        text: entry.headword,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        onTap: () => _openEntry(entry),
+                      ),
                     ),
                     trailing: PopupMenuButton<String>(
                       onSelected: (value) {
@@ -324,22 +345,7 @@ class _DictionaryEntriesScreenState
                         PopupMenuItem(value: 'delete', child: Text('削除')),
                       ],
                     ),
-                    onTap: () async {
-                      if (_selectionMode) {
-                        _toggleSelection(entry.id);
-                        return;
-                      }
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => DictionaryEntryDetailScreen(
-                            dictionaryId: widget.dictionaryId,
-                            entryId: entry.id,
-                            database: db,
-                          ),
-                        ),
-                      );
-                      _load();
-                    },
+                    onTap: () => _openEntry(entry),
                     onLongPress: () {
                       setState(() {
                         _selectionMode = true;

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_palette.dart';
 import '../../data/local/database.dart';
+import '../../data/local/tables/dictionary_definitions_table.dart';
 import '../../data/local/tables/dictionary_fields_table.dart';
 import '../shared/surface_field.dart';
 
@@ -18,11 +19,14 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _categoryController = TextEditingController();
+  DictionaryReferenceDomain _referenceDomain =
+      DictionaryReferenceDomain.general;
 
   bool _isWork = false;
 
   // 基本フィールド
   bool _enableMemo = true;
+  bool _enableReading = true;
   bool _enableReferenceUrls = true;
   bool _enableSynonyms = true;
   bool _enableAntonyms = true;
@@ -85,6 +89,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
                 ? null
                 : _categoryController.text.trim(),
           ),
+          referenceDomain: Value(_referenceDomain),
         ),
       );
 
@@ -98,12 +103,20 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'order': 0,
       },
       {
+        'key': 'reading',
+        'label': '読み方',
+        'type': DictionaryFieldType.text,
+        'required': false,
+        'enabled': _enableReading,
+        'order': 1,
+      },
+      {
         'key': 'definition',
         'label': '説明・定義',
         'type': DictionaryFieldType.multiline,
         'required': true,
         'enabled': true,
-        'order': 1,
+        'order': 2,
       },
       {
         'key': 'memo',
@@ -111,7 +124,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.multiline,
         'required': false,
         'enabled': _enableMemo,
-        'order': 2,
+        'order': 3,
       },
       {
         'key': 'reference_urls',
@@ -119,7 +132,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.urlList,
         'required': false,
         'enabled': _enableReferenceUrls,
-        'order': 3,
+        'order': 4,
       },
       {
         'key': 'synonyms',
@@ -127,7 +140,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.list,
         'required': false,
         'enabled': _enableSynonyms,
-        'order': 4,
+        'order': 5,
       },
       {
         'key': 'antonyms',
@@ -135,7 +148,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.list,
         'required': false,
         'enabled': _enableAntonyms,
-        'order': 5,
+        'order': 6,
       },
       {
         'key': 'related',
@@ -143,7 +156,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.list,
         'required': false,
         'enabled': _enableRelated,
-        'order': 6,
+        'order': 7,
       },
       {
         'key': 'examples',
@@ -151,7 +164,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.list,
         'required': false,
         'enabled': _enableExamples,
-        'order': 7,
+        'order': 8,
       },
       {
         'key': 'etymology',
@@ -159,7 +172,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.multiline,
         'required': false,
         'enabled': _enableEtymology,
-        'order': 8,
+        'order': 9,
       },
       {
         'key': 'usage_note',
@@ -167,7 +180,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.multiline,
         'required': false,
         'enabled': _enableUsageNote,
-        'order': 9,
+        'order': 10,
       },
       {
         'key': 'cultural_background',
@@ -175,7 +188,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.multiline,
         'required': false,
         'enabled': _enableCulturalBackground,
-        'order': 11,
+        'order': 12,
       },
       {
         'key': 'trivia',
@@ -183,7 +196,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.multiline,
         'required': false,
         'enabled': _enableTrivia,
-        'order': 12,
+        'order': 13,
       },
       {
         'key': 'tips',
@@ -191,7 +204,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.multiline,
         'required': false,
         'enabled': _enableTips,
-        'order': 13,
+        'order': 14,
       },
       {
         'key': 'common_mistakes',
@@ -199,7 +212,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.multiline,
         'required': false,
         'enabled': _enableCommonMistakes,
-        'order': 14,
+        'order': 15,
       },
       {
         'key': 'emotional_tone',
@@ -207,7 +220,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.multiline,
         'required': false,
         'enabled': _enableEmotionalTone,
-        'order': 15,
+        'order': 16,
       },
       {
         'key': 'quotes',
@@ -215,7 +228,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.multiline,
         'required': false,
         'enabled': _enableQuotes,
-        'order': 16,
+        'order': 17,
       },
       {
         'key': 'contrasts',
@@ -223,7 +236,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.multiline,
         'required': false,
         'enabled': _enableContrasts,
-        'order': 17,
+        'order': 18,
       },
       {
         'key': 'case_studies',
@@ -231,7 +244,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.multiline,
         'required': false,
         'enabled': _enableCaseStudies,
-        'order': 18,
+        'order': 19,
       },
       {
         'key': 'derivatives',
@@ -239,7 +252,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.list,
         'required': false,
         'enabled': _enableDerivatives,
-        'order': 19,
+        'order': 20,
       },
       {
         'key': 'pop_culture',
@@ -247,7 +260,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.multiline,
         'required': false,
         'enabled': _enablePopCulture,
-        'order': 20,
+        'order': 21,
       },
       {
         'key': 'academic_context',
@@ -255,7 +268,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.multiline,
         'required': false,
         'enabled': _enableAcademicContext,
-        'order': 21,
+        'order': 22,
       },
       {
         'key': 'semantic_shift',
@@ -263,7 +276,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
         'type': DictionaryFieldType.multiline,
         'required': false,
         'enabled': _enableSemanticShift,
-        'order': 22,
+        'order': 23,
       },
       ];
 
@@ -342,6 +355,37 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
             hintText: '例: 試験, プロジェクト',
             controller: _categoryController,
           ),
+          const SizedBox(height: 12),
+          Text(
+            'URL参照の優先タイプ',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SegmentedButton<DictionaryReferenceDomain>(
+            segments: const [
+              ButtonSegment(
+                value: DictionaryReferenceDomain.general,
+                label: Text('一般'),
+              ),
+              ButtonSegment(
+                value: DictionaryReferenceDomain.technology,
+                label: Text('IT'),
+              ),
+              ButtonSegment(
+                value: DictionaryReferenceDomain.english,
+                label: Text('英語'),
+              ),
+            ],
+            selected: {_referenceDomain},
+            showSelectedIcon: false,
+            onSelectionChanged: (selection) {
+              setState(() {
+                _referenceDomain = selection.first;
+              });
+            },
+          ),
           const SizedBox(height: 16),
           SwitchListTile(
             value: _isWork,
@@ -353,6 +397,7 @@ class _DictionaryCreateScreenState extends State<DictionaryCreateScreen> {
           Text('使用する項目', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           _buildToggle('メモ', _enableMemo, (v) => _enableMemo = v),
+          _buildToggle('読み方', _enableReading, (v) => _enableReading = v),
           _buildToggle(
             '参考URL',
             _enableReferenceUrls,

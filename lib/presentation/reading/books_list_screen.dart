@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_palette.dart';
@@ -291,7 +293,7 @@ class _BooksListScreenState extends ConsumerState<BooksListScreen> {
                                     ? Icons.menu_book_outlined
                                     : Icons.search_off,
                                 size: 64,
-                                color: theme.colorScheme.secondary.withOpacity(0.4),
+                                color: theme.colorScheme.secondary.withValues(alpha: 0.4),
                               ),
                               const SizedBox(height: 16),
                               Text(
@@ -299,7 +301,7 @@ class _BooksListScreenState extends ConsumerState<BooksListScreen> {
                                     ? '書籍がありません'
                                     : '該当する書籍が見つかりません',
                                 style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: theme.colorScheme.secondary.withOpacity(0.6),
+                                  color: theme.colorScheme.secondary.withValues(alpha: 0.6),
                                 ),
                               ),
                               if (_allBooks.isEmpty) ...[
@@ -326,19 +328,7 @@ class _BooksListScreenState extends ConsumerState<BooksListScreen> {
                                 vertical: 6,
                               ),
                               child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: AppPalette.soften(
-                                    AppPalette.reading,
-                                    0.2,
-                                  ),
-                                  child: Text(
-                                    book.title.isNotEmpty ? book.title[0] : '?',
-                                    style: const TextStyle(
-                                      color: AppPalette.reading,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
+                                leading: _BookListCover(book: book),
                                 title: SelectableContextText(
                                   text: book.title,
                                   maxLines: 1,
@@ -379,7 +369,7 @@ class _BooksListScreenState extends ConsumerState<BooksListScreen> {
                                     Text(
                                       '${book.createdAt.year}/${book.createdAt.month}/${book.createdAt.day}',
                                       style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.secondary.withOpacity(0.6),
+                                        color: theme.colorScheme.secondary.withValues(alpha: 0.6),
                                       ),
                                     ),
                                   ],
@@ -417,6 +407,78 @@ class _BooksListScreenState extends ConsumerState<BooksListScreen> {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('本を追加'),
+      ),
+    );
+  }
+}
+
+class _BookListCover extends StatelessWidget {
+  final Book book;
+
+  const _BookListCover({required this.book});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = book.coverImagePath != null &&
+        book.coverImagePath!.isNotEmpty &&
+        File(book.coverImagePath!).existsSync();
+    final missingImage =
+        book.coverImagePath != null &&
+        book.coverImagePath!.isNotEmpty &&
+        !hasImage;
+    return SizedBox(
+      width: 46,
+      height: 64,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 46,
+            height: 64,
+            decoration: BoxDecoration(
+              color: AppPalette.soften(AppPalette.reading, 0.2),
+              borderRadius: BorderRadius.circular(10),
+              image: hasImage
+                  ? DecorationImage(
+                      image: FileImage(File(book.coverImagePath!)),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: hasImage
+                ? null
+                : Center(
+                    child: Text(
+                      book.title.isNotEmpty ? book.title[0] : '?',
+                      style: const TextStyle(
+                        color: AppPalette.reading,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+          ),
+          if (missingImage)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Tooltip(
+                message: '保存されていた表紙ファイルが見つかりません',
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: const BoxDecoration(
+                    color: Colors.orange,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    size: 12,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

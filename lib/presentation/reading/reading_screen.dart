@@ -65,7 +65,7 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
     if (keyword.isNotEmpty) {
       filtered = filtered.where((entry) {
         final title = entry.title.toLowerCase();
-        final reading = (entry.reading ?? '').toLowerCase();
+        final reading = entry.reading.toLowerCase();
         return title.contains(keyword) || reading.contains(keyword);
       }).toList();
     }
@@ -86,7 +86,7 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
           comparison = a.title.compareTo(b.title);
           break;
         case ReadingSortField.reading:
-          comparison = (a.reading ?? '').compareTo(b.reading ?? '');
+          comparison = a.reading.compareTo(b.reading);
           break;
         case ReadingSortField.createdAt:
           comparison = a.createdAt.compareTo(b.createdAt);
@@ -254,7 +254,7 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
                                     ? Icons.menu_book_outlined
                                     : Icons.search_off,
                                 size: 64,
-                                color: theme.colorScheme.secondary.withOpacity(0.4),
+                                color: theme.colorScheme.secondary.withValues(alpha: 0.4),
                               ),
                               const SizedBox(height: 16),
                               Text(
@@ -262,7 +262,7 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
                                     ? '読書ノートがありません'
                                     : 'エントリが見つかりません',
                                 style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: theme.colorScheme.secondary.withOpacity(0.6),
+                                  color: theme.colorScheme.secondary.withValues(alpha: 0.6),
                                 ),
                               ),
                               if (_allEntries.isEmpty) ...[
@@ -281,7 +281,7 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
                           itemCount: _filteredEntries.length,
                           itemBuilder: (context, index) {
                             final entry = _filteredEntries[index];
-                            final bookTitle = entry.reading ?? '不明な書籍';
+                            final bookTitle = entry.reading.isEmpty ? '不明な書籍' : entry.reading;
 
                             return Card(
                               margin: const EdgeInsets.symmetric(
@@ -326,7 +326,7 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
                                 trailing: Text(
                                   '${entry.createdAt.year}/${entry.createdAt.month}/${entry.createdAt.day}',
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.secondary.withOpacity(0.6),
+                                    color: theme.colorScheme.secondary.withValues(alpha: 0.6),
                                   ),
                                 ),
                                 isThreeLine: true,

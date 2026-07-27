@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/ai/ai_client.dart';
 import '../../core/ai/ai_mode.dart';
@@ -34,6 +38,8 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
   final _ratingController = TextEditingController();
   final _relatedUrlController = TextEditingController();
   final _reviewSummaryController = TextEditingController();
+  final ImagePicker _imagePicker = ImagePicker();
+  String? _coverImagePath;
 
   bool _isSaving = false;
   bool _isCompletingWithAI = false;
@@ -65,7 +71,8 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
     required String author,
     required AIMode mode,
   }) {
-    final prompt = '''
+    final prompt =
+        '''
 あなたは書籍データベースのアシスタントです。以下の書籍について、知っている情報をJSON形式で返してください。
 
 書名: $title
@@ -109,7 +116,7 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
         'synopsis',
         'rating',
         'related_url',
-        'review_summary'
+        'review_summary',
       ],
     };
 
@@ -123,9 +130,9 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
   /// AIで書籍情報を自動補完
   Future<void> _completeWithAI() async {
     if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('書名と著者名を入力してください')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('書名と著者名を入力してください')));
       return;
     }
 
@@ -137,58 +144,64 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
       final title = _titleController.text.trim();
       final author = _authorController.text.trim();
 
-      print('[BookAdd] AI補完開始: $title / $author');
+      debugPrint('[BookAdd] AI補完開始: $title / $author');
 
       Map<String, dynamic> result;
       bool usedSearch = false;
+      bool searchFallbackUsed = false;
+      String? searchNoticeMessage;
 
-      // まずWeb検索モードで試行
-      try {
-        // 検索API設定状況をチェック
-        final searchClient = SearchClient.instance;
-        final remaining = await searchClient.getRemainingGoogleSearches();
-        print('[BookAdd] Google検索残り回数: $remaining/100');
+      // 検索設定が有効なときだけWeb検索モードを使う
+      final canUseSearch =
+          SearchClient.isInitialized && SearchClient.instance.isAvailable;
 
-        // .env読み込み状況を確認
-        print('[BookAdd] GOOGLE_API_KEY設定: ${dotenv.env['GOOGLE_API_KEY'] != null ? "あり（${dotenv.env['GOOGLE_API_KEY']?.substring(0, 10)}...）" : "なし"}');
-        print('[BookAdd] GOOGLE_SEARCH_ENGINE_ID設定: ${dotenv.env['GOOGLE_SEARCH_ENGINE_ID'] != null ? "あり（${dotenv.env['GOOGLE_SEARCH_ENGINE_ID']}）" : "なし"}');
+      if (canUseSearch) {
+        // まずWeb検索モードで試行
+        try {
+          final searchClient = SearchClient.instance;
+          final remaining = await searchClient.getRemainingGoogleSearches();
+          debugPrint('[BookAdd] Google検索残り回数: $remaining/100');
+          debugPrint(
+            '[BookAdd] SEARCH_PROXY_BASE_URL設定: ${dotenv.env['SEARCH_PROXY_BASE_URL'] ?? "なし"}',
+          );
 
-        print('[BookAdd] Web検索モードで補完を試行');
-        result = await _fetchBookInfo(
-          title: title,
-          author: author,
-          mode: AIMode.withSearch,
-        );
-        usedSearch = true;
-        print('[BookAdd] AI補完結果（検索モード）: $result');
-      } catch (e) {
-        print('[BookAdd] 検索モードでエラー: $e');
-        // 検索APIが使えない場合は通常モードにフォールバック
-        print('[BookAdd] 通常モードにフォールバック');
+          debugPrint('[BookAdd] Web検索モードで補完を試行');
+          result = await _fetchBookInfo(
+            title: title,
+            author: author,
+            mode: AIMode.withSearch,
+          );
+          usedSearch = true;
+          debugPrint('[BookAdd] AI補完結果（検索モード）: $result');
+        } catch (e) {
+          debugPrint('[BookAdd] 検索モードでエラー: $e');
+          debugPrint('[BookAdd] 通常モードにフォールバック');
+          searchFallbackUsed = true;
+          result = await _fetchBookInfo(
+            title: title,
+            author: author,
+            mode: AIMode.standard,
+          );
+          debugPrint('[BookAdd] AI補完結果（通常モード）: $result');
+        }
+      } else {
+        debugPrint('[BookAdd] 検索API未設定のため通常モードで補完');
+        searchNoticeMessage = '検索拡張が未設定のため、通常AI補完で実行しました';
         result = await _fetchBookInfo(
           title: title,
           author: author,
           mode: AIMode.standard,
         );
-        print('[BookAdd] AI補完結果（通常モード）: $result');
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('検索APIが使えないため、通常モードで補完しました'),
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
+        debugPrint('[BookAdd] AI補完結果（通常モード）: $result');
       }
 
       // 結果が空かチェック
-      final hasContent = result.values.any((value) =>
-        value != null && value.toString().trim().isNotEmpty
+      final hasContent = result.values.any(
+        (value) => value != null && value.toString().trim().isNotEmpty,
       );
 
       if (!hasContent) {
-        print('[BookAdd] 警告: AIから有効な情報が取得できませんでした');
+        debugPrint('[BookAdd] 警告: AIから有効な情報が取得できませんでした');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -202,29 +215,30 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
 
       if (usedSearch && mounted) {
         // 検索モードで成功した場合は、より詳細な情報が取得できたことを通知
-        print('[BookAdd] Web検索で詳細情報を取得しました');
+        debugPrint('[BookAdd] Web検索で詳細情報を取得しました');
       }
 
-      print('[BookAdd] 各フィールドの更新開始');
+      debugPrint('[BookAdd] 各フィールドの更新開始');
       if (mounted) {
         setState(() {
-          if (result['genre'] != null && result['genre'].toString().isNotEmpty) {
+          if (result['genre'] != null &&
+              result['genre'].toString().isNotEmpty) {
             _genreController.text = result['genre'].toString();
-            print('[BookAdd] ジャンル更新: ${_genreController.text}');
+            debugPrint('[BookAdd] ジャンル更新: ${_genreController.text}');
           }
           if (result['publisher'] != null &&
               result['publisher'].toString().isNotEmpty) {
             _publisherController.text = result['publisher'].toString();
-            print('[BookAdd] 出版社更新: ${_publisherController.text}');
+            debugPrint('[BookAdd] 出版社更新: ${_publisherController.text}');
           }
           if (result['published_date'] != null &&
               result['published_date'].toString().isNotEmpty) {
             _publishedDateController.text = result['published_date'].toString();
-            print('[BookAdd] 出版日更新: ${_publishedDateController.text}');
+            debugPrint('[BookAdd] 出版日更新: ${_publishedDateController.text}');
           }
           if (result['isbn'] != null && result['isbn'].toString().isNotEmpty) {
             _isbnController.text = result['isbn'].toString();
-            print('[BookAdd] ISBN更新: ${_isbnController.text}');
+            debugPrint('[BookAdd] ISBN更新: ${_isbnController.text}');
           }
           if (result['synopsis'] != null &&
               result['synopsis'].toString().isNotEmpty) {
@@ -232,17 +246,17 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
             final synopsisPreview = _synopsisController.text.length > 50
                 ? '${_synopsisController.text.substring(0, 50)}...'
                 : _synopsisController.text;
-            print('[BookAdd] あらすじ更新: $synopsisPreview');
+            debugPrint('[BookAdd] あらすじ更新: $synopsisPreview');
           }
           if (result['rating'] != null &&
               result['rating'].toString().isNotEmpty) {
             _ratingController.text = result['rating'].toString();
-            print('[BookAdd] 評価更新: ${_ratingController.text}');
+            debugPrint('[BookAdd] 評価更新: ${_ratingController.text}');
           }
           if (result['related_url'] != null &&
               result['related_url'].toString().isNotEmpty) {
             _relatedUrlController.text = result['related_url'].toString();
-            print('[BookAdd] URL更新: ${_relatedUrlController.text}');
+            debugPrint('[BookAdd] URL更新: ${_relatedUrlController.text}');
           }
           if (result['review_summary'] != null &&
               result['review_summary'].toString().isNotEmpty) {
@@ -250,20 +264,33 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
             final reviewPreview = _reviewSummaryController.text.length > 50
                 ? '${_reviewSummaryController.text.substring(0, 50)}...'
                 : _reviewSummaryController.text;
-            print('[BookAdd] レビュー更新: $reviewPreview');
+            debugPrint('[BookAdd] レビュー更新: $reviewPreview');
           }
         });
 
-        print('[BookAdd] AI補完完了、スナックバー表示');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('AIによる情報補完が完了しました')),
-        );
+        debugPrint('[BookAdd] AI補完完了、スナックバー表示');
+        final completionMessage = usedSearch
+            ? 'AIによる情報補完が完了しました（検索拡張あり）'
+            : (searchFallbackUsed
+                  ? 'AIによる情報補完が完了しました（検索拡張なしで継続）'
+                  : 'AIによる情報補完が完了しました');
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(completionMessage)));
+        if (searchNoticeMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(searchNoticeMessage),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('AI補完に失敗しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('AI補完に失敗しました: $e')));
       }
     } finally {
       if (mounted) {
@@ -284,48 +311,74 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
 
     try {
       await _db.ensureBooksColumns();
+      final persistedCoverPath = await _persistCoverImage();
       final companion = BooksCompanion.insert(
         title: _titleController.text.trim(),
         author: _authorController.text.trim(),
-        genre: Value(_genreController.text.trim().isEmpty
-            ? null
-            : _genreController.text.trim()),
-        publisher: Value(_publisherController.text.trim().isEmpty
-            ? null
-            : _publisherController.text.trim()),
-        publishedDate: Value(_publishedDateController.text.trim().isEmpty
-            ? null
-            : _publishedDateController.text.trim()),
-        isbn: Value(_isbnController.text.trim().isEmpty
-            ? null
-            : _isbnController.text.trim()),
-        synopsis: Value(_synopsisController.text.trim().isEmpty
-            ? null
-            : _synopsisController.text.trim()),
-        rating: Value(_ratingController.text.trim().isEmpty
-            ? null
-            : _ratingController.text.trim()),
-        relatedUrl: Value(_relatedUrlController.text.trim().isEmpty
-            ? null
-            : _relatedUrlController.text.trim()),
-        reviewSummary: Value(_reviewSummaryController.text.trim().isEmpty
-            ? null
-            : _reviewSummaryController.text.trim()),
+        genre: Value(
+          _genreController.text.trim().isEmpty
+              ? null
+              : _genreController.text.trim(),
+        ),
+        publisher: Value(
+          _publisherController.text.trim().isEmpty
+              ? null
+              : _publisherController.text.trim(),
+        ),
+        publishedDate: Value(
+          _publishedDateController.text.trim().isEmpty
+              ? null
+              : _publishedDateController.text.trim(),
+        ),
+        isbn: Value(
+          _isbnController.text.trim().isEmpty
+              ? null
+              : _isbnController.text.trim(),
+        ),
+        synopsis: Value(
+          _synopsisController.text.trim().isEmpty
+              ? null
+              : _synopsisController.text.trim(),
+        ),
+        rating: Value(
+          _ratingController.text.trim().isEmpty
+              ? null
+              : _ratingController.text.trim(),
+        ),
+        relatedUrl: Value(
+          _relatedUrlController.text.trim().isEmpty
+              ? null
+              : _relatedUrlController.text.trim(),
+        ),
+        reviewSummary: Value(
+          _reviewSummaryController.text.trim().isEmpty
+              ? null
+              : _reviewSummaryController.text.trim(),
+        ),
+        coverImagePath: Value(persistedCoverPath),
       );
 
       await _db.booksDao.insertBook(companion);
 
       if (mounted) {
         Navigator.of(context).pop(true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('書籍を登録しました')),
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(
+          SnackBar(
+            content: Text(
+              persistedCoverPath == null
+                  ? '書籍を登録しました'
+                  : '書籍を登録しました（表紙も保存済み）',
+            ),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存に失敗しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
       }
     } finally {
       if (mounted) {
@@ -334,6 +387,38 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
         });
       }
     }
+  }
+
+  Future<void> _pickCoverImage() async {
+    final file = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 55,
+      maxWidth: 480,
+    );
+    if (file == null || !mounted) return;
+    setState(() => _coverImagePath = file.path);
+  }
+
+  Future<String?> _persistCoverImage() async {
+    if (_coverImagePath == null || _coverImagePath!.isEmpty) return null;
+    final source = File(_coverImagePath!);
+    if (!await source.exists()) return null;
+
+    final docsDir = await getApplicationDocumentsDirectory();
+    final coverDir = Directory('${docsDir.path}/book_covers');
+    if (!await coverDir.exists()) {
+      await coverDir.create(recursive: true);
+    }
+    if (_coverImagePath!.startsWith(coverDir.path)) {
+      return _coverImagePath;
+    }
+
+    final extension = _coverImagePath!.contains('.')
+        ? _coverImagePath!.substring(_coverImagePath!.lastIndexOf('.'))
+        : '.jpg';
+    final outputPath =
+        '${coverDir.path}/cover_${DateTime.now().millisecondsSinceEpoch}$extension';
+    return source.copy(outputPath).then((file) => file.path);
   }
 
   @override
@@ -368,6 +453,44 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    _BookCoverPreview(imagePath: _coverImagePath),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '表紙画像',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '一覧で頭文字の代わりに表示します。軽量化のため圧縮して保存します。',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.secondary,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: _pickCoverImage,
+                      child: Text(_coverImagePath == null ? '追加' : '変更'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             // 説明カード
             Card(
               child: Padding(
@@ -581,6 +704,35 @@ class _BookAddScreenState extends ConsumerState<BookAddScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BookCoverPreview extends StatelessWidget {
+  final String? imagePath;
+
+  const _BookCoverPreview({required this.imagePath});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage =
+        imagePath != null && imagePath!.isNotEmpty && File(imagePath!).existsSync();
+    return Container(
+      width: 60,
+      height: 84,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(12),
+        image: hasImage
+            ? DecorationImage(
+                image: FileImage(File(imagePath!)),
+                fit: BoxFit.cover,
+              )
+            : null,
+      ),
+      child: hasImage
+          ? null
+          : const Icon(Icons.menu_book_outlined, color: Colors.grey),
     );
   }
 }

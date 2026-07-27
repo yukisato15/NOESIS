@@ -7,12 +7,14 @@ import 'package:intl/intl.dart';
 import '../../core/widgets/selectable_context_text.dart';
 import '../../core/theme/app_palette.dart';
 import '../../data/local/database.dart';
+import '../archive/archive_target_detail_screen.dart';
 import '../code/code_entry_detail_screen.dart';
 import '../dictionary/dictionary_entry_detail_screen.dart';
 import 'advanced_search_screen.dart';
 import 'analysis_screen.dart';
 
 enum SearchSortField { title, createdAt, updatedAt }
+
 enum SortOrder { ascending, descending }
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -22,7 +24,8 @@ class SearchScreen extends ConsumerStatefulWidget {
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerProviderStateMixin {
+class _SearchScreenState extends ConsumerState<SearchScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final AppDatabase _db = AppDatabase();
   final FocusNode _focusNode = FocusNode();
@@ -31,7 +34,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
   List<Map<String, dynamic>> _allResults = [];
   List<Map<String, dynamic>> _filteredResults = [];
 
-  bool _isSearching = false;
   bool _isInitialLoading = true;
   bool _isReloading = false;
 
@@ -73,12 +75,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
 
       // 辞書登録ワード検索（個別の単語を検索対象に）
       final dictEntries = await _db.select(_db.dictionaryEntries).get();
-      print('[SearchScreen] 辞書エントリー件数: ${dictEntries.length}');
+      debugPrint('[SearchScreen] 辞書エントリー件数: ${dictEntries.length}');
       for (final entry in dictEntries) {
         // この単語のフィールド値を取得
-        final entryValues = await (_db.select(_db.dictionaryEntryValues)
-              ..where((ev) => ev.entryId.equals(entry.id)))
-            .get();
+        final entryValues = await (_db.select(
+          _db.dictionaryEntryValues,
+        )..where((ev) => ev.entryId.equals(entry.id))).get();
 
         // フィールド値を結合してbodyとして使用
         final bodyParts = <String>[];
@@ -128,13 +130,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
       }
 
       // 読書メモ（読書アーカイブ）
-      final bookTitleById = {
-        for (final book in books) book.id: book.title,
-      };
+      final bookTitleById = {for (final book in books) book.id: book.title};
       final readingMemos = await _db.readingMemosDao.getAllMemos();
       for (final memo in readingMemos) {
         final memoBody =
-            memo.excerptText ?? memo.thoughtText ?? memo.content ?? '';
+            memo.excerptText ?? memo.thoughtText;
         _allResults.add({
           'id': 'reading_memo_${memo.id}',
           'type': 'reading_memo',
@@ -145,7 +145,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
           'category': null,
           'tags': null,
           'createdAt': memo.createdAt,
-          'updatedAt': memo.updatedAt ?? memo.createdAt,
+          'updatedAt': memo.updatedAt,
         });
       }
 
@@ -167,7 +167,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
           'category': concept.category,
           'tags': concept.tags,
           'createdAt': concept.createdAt,
-          'updatedAt': concept.updatedAt ?? concept.createdAt,
+          'updatedAt': concept.updatedAt,
         });
       }
 
@@ -182,7 +182,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
           'category': null,
           'tags': null,
           'createdAt': memo.createdAt,
-          'updatedAt': memo.updatedAt ?? memo.createdAt,
+          'updatedAt': memo.updatedAt,
         });
       }
 
@@ -204,7 +204,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
           'category': memo.category,
           'tags': memo.tags,
           'createdAt': memo.createdAt,
-          'updatedAt': memo.updatedAt ?? memo.createdAt,
+          'updatedAt': memo.updatedAt,
         });
       }
 
@@ -230,7 +230,55 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
         });
       }
 
-      print('[SearchScreen] 全検索結果件数: ${_allResults.length}');
+      final archiveTargets = await _db.archiveTargetsDao.getAllTargets();
+      for (final target in archiveTargets) {
+        if (target.category != null && target.category!.isNotEmpty) {
+          _allCategories.add(target.category!);
+        }
+        if (target.tags != null) {
+          try {
+            final tags = (jsonDecode(target.tags!) as List).cast<String>();
+            _allTags.addAll(tags);
+          } catch (_) {}
+        }
+        _allResults.add({
+          'id': 'archive_target_${target.id}',
+          'type': 'archive_target',
+          'title': target.name,
+          'body': [
+            target.summary ?? '',
+            target.analysisSummary ?? '',
+            target.analysisTraits ?? '',
+          ].where((value) => value.trim().isNotEmpty).join('\n'),
+          'category': target.category,
+          'tags': target.tags,
+          'createdAt': target.createdAt,
+          'updatedAt': target.updatedAt,
+        });
+      }
+
+      for (final target in archiveTargets) {
+        final entries = await _db.archiveTargetsDao.getEntriesByTarget(
+          target.id,
+        );
+        for (final entry in entries) {
+          _allResults.add({
+            'id': 'archive_entry_${entry.id}',
+            'type': 'archive_entry',
+            'title': entry.title?.trim().isNotEmpty == true
+                ? entry.title!
+                : target.name,
+            'body': entry.content,
+            'category': target.category,
+            'tags': target.tags,
+            'targetId': target.id,
+            'createdAt': entry.createdAt,
+            'updatedAt': entry.happenedAt ?? entry.createdAt,
+          });
+        }
+      }
+
+      debugPrint('[SearchScreen] 全検索結果件数: ${_allResults.length}');
       _applyFiltersAndSort();
 
       setState(() {
@@ -243,9 +291,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
         _isReloading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('データの読み込みに失敗しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('データの読み込みに失敗しました: $e')));
       }
     }
   }
@@ -366,12 +414,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
         return StatefulBuilder(
           builder: (context, setSheetState) {
             final keyword = controller.text.trim().toLowerCase();
-            final tags = _allTags
-                .where(
-                  (tag) => keyword.isEmpty || tag.toLowerCase().contains(keyword),
-                )
-                .toList()
-              ..sort();
+            final tags =
+                _allTags
+                    .where(
+                      (tag) =>
+                          keyword.isEmpty ||
+                          tag.toLowerCase().contains(keyword),
+                    )
+                    .toList()
+                  ..sort();
             return SafeArea(
               child: Padding(
                 padding: EdgeInsets.only(
@@ -520,198 +571,198 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
 
   Widget _buildKeywordSearchTab(ThemeData theme) {
     return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: '全アーカイブを検索...',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _searchController.clear();
-                                _performSearch('');
-                              },
-                            )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onChanged: (value) {
-                      _performSearch(value);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        DropdownButton<SearchSortField>(
-                          value: _sortField,
-                          items: const [
-                            DropdownMenuItem(
-                              value: SearchSortField.title,
-                              child: Text('名前順'),
-                            ),
-                            DropdownMenuItem(
-                              value: SearchSortField.createdAt,
-                              child: Text('作成日時'),
-                            ),
-                            DropdownMenuItem(
-                              value: SearchSortField.updatedAt,
-                              child: Text('更新日時'),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() => _sortField = value);
-                              _applyFiltersAndSort();
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: Icon(
-                            _sortOrder == SortOrder.ascending
-                                ? Icons.arrow_upward
-                                : Icons.arrow_downward,
-                          ),
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: '全アーカイブを検索...',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
                           onPressed: () {
+                            _searchController.clear();
+                            _performSearch('');
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onChanged: (value) {
+                  _performSearch(value);
+                },
+              ),
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    DropdownButton<SearchSortField>(
+                      value: _sortField,
+                      items: const [
+                        DropdownMenuItem(
+                          value: SearchSortField.title,
+                          child: Text('名前順'),
+                        ),
+                        DropdownMenuItem(
+                          value: SearchSortField.createdAt,
+                          child: Text('作成日時'),
+                        ),
+                        DropdownMenuItem(
+                          value: SearchSortField.updatedAt,
+                          child: Text('更新日時'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _sortField = value);
+                          _applyFiltersAndSort();
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(
+                        _sortOrder == SortOrder.ascending
+                            ? Icons.arrow_upward
+                            : Icons.arrow_downward,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _sortOrder = _sortOrder == SortOrder.ascending
+                              ? SortOrder.descending
+                              : SortOrder.ascending;
+                        });
+                        _applyFiltersAndSort();
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    if (_allCategories.isNotEmpty)
+                      DropdownButton<String?>(
+                        value: _selectedCategory,
+                        hint: const Text('カテゴリ'),
+                        items: [
+                          const DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('すべて'),
+                          ),
+                          ..._allCategories.map(
+                            (cat) =>
+                                DropdownMenuItem(value: cat, child: Text(cat)),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() => _selectedCategory = value);
+                          _applyFiltersAndSort();
+                        },
+                      ),
+                    const SizedBox(width: 8),
+                    ActionChip(
+                      label: Text(
+                        _dateRange == null
+                            ? '日付'
+                            : DateFormat('M/d').format(_dateRange!.start),
+                      ),
+                      avatar: const Icon(Icons.calendar_today, size: 16),
+                      onPressed: _selectDateRange,
+                    ),
+                    if (_dateRange != null) ...[
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 16),
+                        onPressed: () {
+                          setState(() => _dateRange = null);
+                          _applyFiltersAndSort();
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Text(
+                    'タグ',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: _openTagPicker,
+                    icon: const Icon(Icons.tune, size: 16),
+                    label: const Text('選択'),
+                  ),
+                ],
+              ),
+              if (_selectedTags.isNotEmpty)
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: _selectedTags
+                      .map(
+                        (tag) => InputChip(
+                          label: Text(tag),
+                          onDeleted: () {
                             setState(() {
-                              _sortOrder = _sortOrder == SortOrder.ascending
-                                  ? SortOrder.descending
-                                  : SortOrder.ascending;
+                              _selectedTags.remove(tag);
                             });
                             _applyFiltersAndSort();
                           },
                         ),
-                        const SizedBox(width: 8),
-                        if (_allCategories.isNotEmpty)
-                          DropdownButton<String?>(
-                            value: _selectedCategory,
-                            hint: const Text('カテゴリ'),
-                            items: [
-                              const DropdownMenuItem<String?>(
-                                value: null,
-                                child: Text('すべて'),
-                              ),
-                              ..._allCategories.map((cat) => DropdownMenuItem(
-                                    value: cat,
-                                    child: Text(cat),
-                                  )),
-                            ],
-                            onChanged: (value) {
-                              setState(() => _selectedCategory = value);
-                              _applyFiltersAndSort();
-                            },
-                          ),
-                        const SizedBox(width: 8),
-                        ActionChip(
-                          label: Text(_dateRange == null
-                              ? '日付'
-                              : DateFormat('M/d').format(_dateRange!.start)),
-                          avatar: const Icon(Icons.calendar_today, size: 16),
-                          onPressed: _selectDateRange,
-                        ),
-                        if (_dateRange != null) ...[
-                          const SizedBox(width: 4),
-                          IconButton(
-                            icon: const Icon(Icons.clear, size: 16),
-                            onPressed: () {
-                              setState(() => _dateRange = null);
-                              _applyFiltersAndSort();
-                            },
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Text(
-                        'タグ',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: _openTagPicker,
-                        icon: const Icon(Icons.tune, size: 16),
-                        label: const Text('選択'),
-                      ),
-                    ],
-                  ),
-                  if (_selectedTags.isNotEmpty)
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: _selectedTags
-                          .map(
-                            (tag) => InputChip(
-                              label: Text(tag),
-                              onDeleted: () {
-                                setState(() {
-                                  _selectedTags.remove(tag);
-                                });
-                                _applyFiltersAndSort();
-                              },
-                            ),
-                          )
-                          .toList(),
-                    )
-                  else
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'タグ未選択',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.secondary,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            if (_isInitialLoading)
-              const Expanded(
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_filteredResults.isEmpty)
-              Expanded(
-                child: Center(
+                      )
+                      .toList(),
+                )
+              else
+                Align(
+                  alignment: Alignment.centerLeft,
                   child: Text(
-                    '結果が見つかりませんでした',
-                    style: theme.textTheme.bodyMedium?.copyWith(
+                    'タグ未選択',
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.secondary,
                     ),
                   ),
                 ),
-              )
-            else
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () => _loadAllData(silent: true),
-                  child: ListView.builder(
-                    itemCount: _filteredResults.length,
-                    itemBuilder: (context, index) {
-                      return _ResultTile(
-                        item: _filteredResults[index],
-                        onTap: _navigateToDetail,
-                      );
-                    },
-                  ),
+            ],
+          ),
+        ),
+        if (_isInitialLoading)
+          const Expanded(child: Center(child: CircularProgressIndicator()))
+        else if (_filteredResults.isEmpty)
+          Expanded(
+            child: Center(
+              child: Text(
+                '結果が見つかりませんでした',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.secondary,
                 ),
               ),
-          ],
-        );
+            ),
+          )
+        else
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () => _loadAllData(silent: true),
+              child: ListView.builder(
+                itemCount: _filteredResults.length,
+                itemBuilder: (context, index) {
+                  return _ResultTile(
+                    item: _filteredResults[index],
+                    onTap: _navigateToDetail,
+                  );
+                },
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   Widget _buildAISearchTab() {
@@ -721,12 +772,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.auto_awesome, size: 64, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 16),
-            Text(
-              'AI検索',
-              style: Theme.of(context).textTheme.headlineSmall,
+            Icon(
+              Icons.auto_awesome,
+              size: 64,
+              color: Theme.of(context).colorScheme.primary,
             ),
+            const SizedBox(height: 16),
+            Text('AI検索', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
             Text(
               '意味からコンテンツを探します',
@@ -758,12 +810,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.analytics, size: 64, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 16),
-            Text(
-              '統計分析',
-              style: Theme.of(context).textTheme.headlineSmall,
+            Icon(
+              Icons.analytics,
+              size: 64,
+              color: Theme.of(context).colorScheme.primary,
             ),
+            const SizedBox(height: 16),
+            Text('統計分析', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
             Text(
               '学習傾向をグラフで可視化します',
@@ -774,9 +827,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
             FilledButton.icon(
               onPressed: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const AnalysisScreen(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const AnalysisScreen()),
                 );
               },
               icon: const Icon(Icons.analytics),
@@ -798,30 +849,57 @@ class _SearchScreenState extends ConsumerState<SearchScreen> with SingleTickerPr
 
     switch (type) {
       case 'code':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => CodeEntryDetailScreen(entryId: entityId),
-          ),
-        ).then((_) => _loadAllData(silent: true));
+        Navigator.of(context)
+            .push(
+              MaterialPageRoute(
+                builder: (context) => CodeEntryDetailScreen(entryId: entityId),
+              ),
+            )
+            .then((_) => _loadAllData(silent: true));
         break;
       case 'dictionary_entry':
         final dictionaryId = result['dictionaryId'] as int?;
         if (dictionaryId != null) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => DictionaryEntryDetailScreen(
-                dictionaryId: dictionaryId,
-                entryId: entityId,
+          Navigator.of(context)
+              .push(
+                MaterialPageRoute(
+                  builder: (context) => DictionaryEntryDetailScreen(
+                    dictionaryId: dictionaryId,
+                    entryId: entityId,
+                  ),
+                ),
+              )
+              .then((_) => _loadAllData(silent: true));
+        }
+        break;
+      case 'archive_target':
+        Navigator.of(context)
+            .push(
+              MaterialPageRoute(
+                builder: (context) =>
+                    ArchiveTargetDetailScreen(targetId: entityId),
               ),
-            ),
-          ).then((_) => _loadAllData(silent: true));
+            )
+            .then((_) => _loadAllData(silent: true));
+        break;
+      case 'archive_entry':
+        final targetId = result['targetId'] as int?;
+        if (targetId != null) {
+          Navigator.of(context)
+              .push(
+                MaterialPageRoute(
+                  builder: (context) =>
+                      ArchiveTargetDetailScreen(targetId: targetId),
+                ),
+              )
+              .then((_) => _loadAllData(silent: true));
         }
         break;
       // 他のタイプは今後実装
       default:
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('詳細画面は未実装です')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('詳細画面は未実装です')));
     }
   }
 }
@@ -830,10 +908,7 @@ class _ResultTile extends StatelessWidget {
   final Map<String, dynamic> item;
   final Function(Map<String, dynamic>) onTap;
 
-  const _ResultTile({
-    required this.item,
-    required this.onTap,
-  });
+  const _ResultTile({required this.item, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -883,6 +958,16 @@ class _ResultTile extends StatelessWidget {
         icon = Icons.code;
         typeLabel = 'ITコード学習';
         break;
+      case 'archive_target':
+        color = AppPalette.archive;
+        icon = Icons.person_search_outlined;
+        typeLabel = '対象アーカイブ';
+        break;
+      case 'archive_entry':
+        color = AppPalette.archive;
+        icon = Icons.event_note_outlined;
+        typeLabel = '対象記録';
+        break;
       default:
         color = Colors.grey;
         icon = Icons.article;
@@ -925,9 +1010,9 @@ class _ResultTile extends StatelessWidget {
               children: [
                 Text(
                   typeLabel,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: color,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: color),
                 ),
                 if (createdAt != null) ...[
                   const Text(' • '),

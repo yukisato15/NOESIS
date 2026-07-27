@@ -31,15 +31,23 @@ class _ConceptDictionaryDetailScreenState
   final TextEditingController _categoryController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
   final TextEditingController _memoController = TextEditingController();
-  final TextEditingController _referenceUrlsController = TextEditingController();
-  final TextEditingController _similarConceptsController = TextEditingController();
-  final TextEditingController _contrastingConceptsController = TextEditingController();
-  final TextEditingController _relatedConceptsController = TextEditingController();
-  final TextEditingController _culturalBackgroundController = TextEditingController();
-  final TextEditingController _practicalAdviceController = TextEditingController();
+  final TextEditingController _referenceUrlsController =
+      TextEditingController();
+  final TextEditingController _similarConceptsController =
+      TextEditingController();
+  final TextEditingController _contrastingConceptsController =
+      TextEditingController();
+  final TextEditingController _relatedConceptsController =
+      TextEditingController();
+  final TextEditingController _culturalBackgroundController =
+      TextEditingController();
+  final TextEditingController _practicalAdviceController =
+      TextEditingController();
   final TextEditingController _caseStudiesController = TextEditingController();
-  final TextEditingController _gyaruExplanationController = TextEditingController();
-  final TextEditingController _childExplanationController = TextEditingController();
+  final TextEditingController _gyaruExplanationController =
+      TextEditingController();
+  final TextEditingController _childExplanationController =
+      TextEditingController();
 
   ConceptDictionary? _concept;
   bool _isSaving = false;
@@ -57,6 +65,14 @@ class _ConceptDictionaryDetailScreenState
   }
 
   Future<void> _loadSearchUsage() async {
+    if (!SearchClient.canUseWebSearch) {
+      if (mounted) {
+        setState(() {
+          _remainingSearches = 0;
+        });
+      }
+      return;
+    }
     final remaining = await SearchClient.instance.getRemainingGoogleSearches();
     if (mounted) {
       setState(() {
@@ -156,9 +172,12 @@ class _ConceptDictionaryDetailScreenState
 
       _memoController.text = concept.memo ?? '';
       _referenceUrlsController.text = _jsonToList(concept.referenceUrls) ?? '';
-      _similarConceptsController.text = _jsonToList(concept.similarConcepts) ?? '';
-      _contrastingConceptsController.text = _jsonToList(concept.contrastingConcepts) ?? '';
-      _relatedConceptsController.text = _jsonToList(concept.relatedConcepts) ?? '';
+      _similarConceptsController.text =
+          _jsonToList(concept.similarConcepts) ?? '';
+      _contrastingConceptsController.text =
+          _jsonToList(concept.contrastingConcepts) ?? '';
+      _relatedConceptsController.text =
+          _jsonToList(concept.relatedConcepts) ?? '';
       _culturalBackgroundController.text = concept.culturalBackground ?? '';
       _practicalAdviceController.text = concept.practicalAdvice ?? '';
       _caseStudiesController.text = concept.caseStudies ?? '';
@@ -215,32 +234,46 @@ class _ConceptDictionaryDetailScreenState
     final updated = _concept!.copyWith(
       title: title,
       body: body,
-      category: Value(_categoryController.text.trim().isEmpty
-          ? null
-          : _categoryController.text.trim()),
+      category: Value(
+        _categoryController.text.trim().isEmpty
+            ? null
+            : _categoryController.text.trim(),
+      ),
       tags: Value(tagsJson),
-      memo: Value(_memoController.text.trim().isEmpty
-          ? null
-          : _memoController.text.trim()),
+      memo: Value(
+        _memoController.text.trim().isEmpty
+            ? null
+            : _memoController.text.trim(),
+      ),
       referenceUrls: Value(_listToJson(_referenceUrlsController)),
       similarConcepts: Value(_listToJson(_similarConceptsController)),
       contrastingConcepts: Value(_listToJson(_contrastingConceptsController)),
       relatedConcepts: Value(_listToJson(_relatedConceptsController)),
-      culturalBackground: Value(_culturalBackgroundController.text.trim().isEmpty
-          ? null
-          : _culturalBackgroundController.text.trim()),
-      practicalAdvice: Value(_practicalAdviceController.text.trim().isEmpty
-          ? null
-          : _practicalAdviceController.text.trim()),
-      caseStudies: Value(_caseStudiesController.text.trim().isEmpty
-          ? null
-          : _caseStudiesController.text.trim()),
-      gyaruExplanation: Value(_gyaruExplanationController.text.trim().isEmpty
-          ? null
-          : _gyaruExplanationController.text.trim()),
-      childExplanation: Value(_childExplanationController.text.trim().isEmpty
-          ? null
-          : _childExplanationController.text.trim()),
+      culturalBackground: Value(
+        _culturalBackgroundController.text.trim().isEmpty
+            ? null
+            : _culturalBackgroundController.text.trim(),
+      ),
+      practicalAdvice: Value(
+        _practicalAdviceController.text.trim().isEmpty
+            ? null
+            : _practicalAdviceController.text.trim(),
+      ),
+      caseStudies: Value(
+        _caseStudiesController.text.trim().isEmpty
+            ? null
+            : _caseStudiesController.text.trim(),
+      ),
+      gyaruExplanation: Value(
+        _gyaruExplanationController.text.trim().isEmpty
+            ? null
+            : _gyaruExplanationController.text.trim(),
+      ),
+      childExplanation: Value(
+        _childExplanationController.text.trim().isEmpty
+            ? null
+            : _childExplanationController.text.trim(),
+      ),
       updatedAt: DateTime.now(),
     );
 
@@ -394,20 +427,20 @@ $instruction
   }
 
   Widget _buildAIModeSelector() {
+    final availableModes = AIMode.values
+        .where(
+          (mode) => mode != AIMode.withSearch || SearchClient.canUseWebSearch,
+        )
+        .toList();
     return SegmentedButton<AIMode>(
-      segments: AIMode.values
-          .map(
-            (mode) => ButtonSegment(
-              value: mode,
-              label: Text(mode.label),
-            ),
-          )
+      segments: availableModes
+          .map((mode) => ButtonSegment(value: mode, label: Text(mode.label)))
           .toList(),
       selected: {_selectedMode},
       showSelectedIcon: false,
       style: ButtonStyle(
         visualDensity: VisualDensity.compact,
-        padding: MaterialStateProperty.all(
+        padding: WidgetStateProperty.all(
           const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
       ),
@@ -536,8 +569,10 @@ $instruction
                           label: 'タグ',
                           hintText: 'カンマ区切りで入力',
                           controller: _tagsController,
-                          onLongPress: () =>
-                              showTextActionSheet(context, _tagsController.text),
+                          onLongPress: () => showTextActionSheet(
+                            context,
+                            _tagsController.text,
+                          ),
                         ),
                       ],
                     ),

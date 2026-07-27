@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/ai/ai_client.dart';
-import '../../core/ai/ai_mode.dart';
+
 import '../../core/ai/coding_teacher_type.dart';
 import '../../core/ai/learning_level.dart';
 import '../../core/theme/app_palette.dart';
@@ -36,8 +36,13 @@ class _CodeEntryDetailScreenState
   List<CodeEntryEntry> _entries = [];
   bool _isLoading = true;
   bool _isProcessingAI = false;
+  bool _isEditing = false;
   CodingTeacherType _selectedTeacher = CodingTeacherType.professional;
   LearningLevel _learningLevel = LearningLevel.beginner;
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _categoryController = TextEditingController();
+  final TextEditingController _tagsController = TextEditingController();
 
   AppDatabase get _db => ref.read(databaseProvider);
 
@@ -45,6 +50,108 @@ class _CodeEntryDetailScreenState
   void initState() {
     super.initState();
     _loadEntryAndHistory();
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _codeController.dispose();
+    _categoryController.dispose();
+    _tagsController.dispose();
+    super.dispose();
+  }
+
+  void _syncControllersFromEntry() {
+    if (_entry == null) {
+      return;
+    }
+    _titleController.text = _entry!.title;
+    _codeController.text = _entry!.code;
+    _categoryController.text = _entry!.category ?? '';
+    _tagsController.text = _decodeTags(_entry!.tags).join(', ');
+  }
+
+  List<String> _decodeTags(String? raw) {
+    if (raw == null || raw.trim().isEmpty) {
+      return [];
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+      }
+    } catch (_) {}
+    return raw
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  List<String> _parseTags(String input) {
+    final normalized = input.replaceAll('、', ',');
+    return normalized
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  void _enterEditMode() {
+    _syncControllersFromEntry();
+    setState(() {
+      _isEditing = true;
+    });
+  }
+
+  void _cancelEdit() {
+    _syncControllersFromEntry();
+    setState(() {
+      _isEditing = false;
+    });
+  }
+
+  Future<void> _saveEdits() async {
+    if (_entry == null) {
+      return;
+    }
+    final title = _titleController.text.trim();
+    final code = _codeController.text.trim();
+    if (title.isEmpty || code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('タイトルとコードを入力してください')),
+      );
+      return;
+    }
+    final category = _categoryController.text.trim();
+    final tags = _parseTags(_tagsController.text);
+    try {
+      await _db.codeEntriesDao.updateCodeEntryCompanion(
+        widget.entryId,
+        CodeEntriesCompanion(
+          title: Value(title),
+          code: Value(code),
+          category: Value(category.isEmpty ? null : category),
+          tags: Value(tags.isEmpty ? null : jsonEncode(tags)),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+      await _loadEntryAndHistory();
+      if (mounted) {
+        setState(() {
+          _isEditing = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('編集内容を保存しました')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存に失敗しました: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _loadEntryAndHistory() async {
@@ -468,53 +575,66 @@ ${_learningLevel.displayName}が理解できるように、丁寧に答えてく
       appBar: AppBar(
         title: Text(_entry!.title),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            tooltip: 'タイトル編集',
-            onPressed: _editTitle,
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete),
-            tooltip: '削除',
-            onPressed: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('削除確認'),
-                  content: const Text('このコードエントリーを削除しますか？'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: const Text('キャンセル'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      style: TextButton.styleFrom(foregroundColor: Colors.red),
-                      child: const Text('削除'),
-                    ),
-                  ],
-                ),
-              );
+          if (_isEditing) ...[
+            IconButton(
+              icon: const Icon(Icons.check),
+              tooltip: '保存',
+              onPressed: _saveEdits,
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: 'キャンセル',
+              onPressed: _cancelEdit,
+            ),
+          ] else ...[
+            IconButton(
+              icon: const Icon(Icons.edit),
+              tooltip: '編集',
+              onPressed: _enterEditMode,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete),
+              tooltip: '削除',
+              onPressed: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('削除確認'),
+                    content: const Text('このコードエントリーを削除しますか？'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('キャンセル'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                        child: const Text('削除'),
+                      ),
+                    ],
+                  ),
+                );
 
-              if (confirmed == true) {
-                try {
-                  await _db.codeEntryEntriesDao
-                      .deleteAllEntriesByCodeEntryId(widget.entryId);
-                  await _db.codeEntriesDao.deleteCodeEntry(widget.entryId);
+                if (confirmed == true) {
+                  try {
+                    await _db.codeEntryEntriesDao
+                        .deleteAllEntriesByCodeEntryId(widget.entryId);
+                    await _db.codeEntriesDao.deleteCodeEntry(widget.entryId);
 
-                  if (mounted) {
-                    Navigator.of(context).pop();
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('削除に失敗しました: $e')),
-                    );
+                    if (mounted) {
+                      Navigator.of(context).pop();
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('削除に失敗しました: $e')),
+                      );
+                    }
                   }
                 }
-              }
-            },
-          ),
+              },
+            ),
+          ],
         ],
       ),
       body: SingleChildScrollView(
@@ -540,12 +660,85 @@ ${_learningLevel.displayName}が理解できるように、丁寧に答えてく
             ),
             const SizedBox(height: 16),
 
+            if (_isEditing) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _titleController,
+                        decoration: const InputDecoration(
+                          labelText: 'タイトル',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _categoryController,
+                        decoration: const InputDecoration(
+                          labelText: 'カテゴリ',
+                          hintText: '任意',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _tagsController,
+                        decoration: const InputDecoration(
+                          labelText: 'タグ',
+                          hintText: 'カンマ区切り',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ] else if ((_entry!.category ?? '').isNotEmpty ||
+                _decodeTags(_entry!.tags).isNotEmpty) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if ((_entry!.category ?? '').isNotEmpty)
+                        Row(
+                          children: [
+                            const Icon(Icons.folder, size: 16),
+                            const SizedBox(width: 6),
+                            Text(_entry!.category!),
+                          ],
+                        ),
+                      if (_decodeTags(_entry!.tags).isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: _decodeTags(_entry!.tags)
+                              .map((tag) => Chip(
+                                    label: Text(tag),
+                                    visualDensity: VisualDensity.compact,
+                                  ))
+                              .toList(),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // AI解析結果
             if (_entry!.language != null ||
                 _entry!.structure != null ||
                 _entry!.capabilities != null) ...[
               Card(
-                color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
@@ -569,7 +762,7 @@ ${_learningLevel.displayName}が理解できるように、丁寧に答えてく
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: AppPalette.code.withOpacity(0.1),
+                                color: AppPalette.code.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -688,16 +881,30 @@ ${_learningLevel.displayName}が理解できるように、丁寧に答えてく
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: SelectableContextText(
-                  text: _entry!.code,
-                  style: const TextStyle(
-                    fontFamily: 'Courier',
-                    fontSize: 12,
-                  ),
-                  onAskAboutCode: (selectedCode) async {
-                    await _askAboutCodeSection(selectedCode);
-                  },
-                ),
+                child: _isEditing
+                    ? TextField(
+                        controller: _codeController,
+                        maxLines: null,
+                        minLines: 8,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          labelText: 'コード',
+                        ),
+                        style: const TextStyle(
+                          fontFamily: 'Courier',
+                          fontSize: 12,
+                        ),
+                      )
+                    : SelectableContextText(
+                        text: _entry!.code,
+                        style: const TextStyle(
+                          fontFamily: 'Courier',
+                          fontSize: 12,
+                        ),
+                        onAskAboutCode: (selectedCode) async {
+                          await _askAboutCodeSection(selectedCode);
+                        },
+                      ),
               ),
             ),
             const SizedBox(height: 24),
@@ -899,7 +1106,7 @@ ${_learningLevel.displayName}が理解できるように、丁寧に答えてく
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: AppPalette.code.withOpacity(0.1),
+                                color: AppPalette.code.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -917,7 +1124,7 @@ ${_learningLevel.displayName}が理解できるように、丁寧に答えてく
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppPalette.code.withOpacity(0.1),
+                                  color: AppPalette.code.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -1149,7 +1356,7 @@ ${_learningLevel.displayName}が復習しやすいように、わかりやすく
                             maxWidth: MediaQuery.of(context).size.width * 0.7,
                           ),
                           decoration: BoxDecoration(
-                            color: isUser ? AppPalette.code.withOpacity(0.1) : Colors.grey.shade200,
+                            color: isUser ? AppPalette.code.withValues(alpha: 0.1) : Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Column(

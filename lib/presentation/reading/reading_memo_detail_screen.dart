@@ -10,6 +10,7 @@ import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/tables/reading_memo_entries_table.dart';
+import '../../data/local/tables/reading_memos_table.dart';
 
 /// 読書メモ詳細画面
 /// メモ内容の表示と、追記エントリーの時系列表示、AI機能（要約・リライト・質問応答）を提供
@@ -34,14 +35,29 @@ class _ReadingMemoDetailScreenState
   List<ReadingMemoEntry> _entries = [];
   bool _isLoading = true;
   bool _isProcessingAI = false;
+  bool _isEditing = false;
   ThinkingStyle _selectedThinkingStyle = ThinkingStyle.socrates;
 
   AppDatabase get _db => ref.read(databaseProvider);
+
+  final TextEditingController _excerptController = TextEditingController();
+  final TextEditingController _thoughtController = TextEditingController();
+  final TextEditingController _sectionTitleController = TextEditingController();
+  final TextEditingController _pageNumberController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadMemoAndEntries();
+  }
+
+  @override
+  void dispose() {
+    _excerptController.dispose();
+    _thoughtController.dispose();
+    _sectionTitleController.dispose();
+    _pageNumberController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadMemoAndEntries() async {
@@ -56,6 +72,7 @@ class _ReadingMemoDetailScreenState
           _entries = entries;
           _isLoading = false;
         });
+        _syncControllersFromMemo();
       }
     } catch (e) {
       if (mounted) {
@@ -65,6 +82,75 @@ class _ReadingMemoDetailScreenState
         );
       }
     }
+  }
+
+  void _syncControllersFromMemo() {
+    if (_memo == null) {
+      return;
+    }
+    _excerptController.text = _memo!.excerptText ?? '';
+    _thoughtController.text = _memo!.thoughtText;
+    _sectionTitleController.text = _memo!.sectionTitle ?? '';
+    _pageNumberController.text = _memo!.pageNumber ?? '';
+  }
+
+  Future<void> _saveEdits() async {
+    if (_memo == null) return;
+
+    final thought = _thoughtController.text.trim();
+    if (thought.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('思考メモを入力してください')),
+      );
+      return;
+    }
+
+    final excerpt = _excerptController.text.trim();
+    if (_memo!.type == MemoType.excerpt && excerpt.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('本文抜粋を入力してください')),
+      );
+      return;
+    }
+
+    final updated = _memo!.copyWith(
+      excerptText: Value(excerpt.isEmpty ? null : excerpt),
+      thoughtText: thought,
+      sectionTitle: Value(_sectionTitleController.text.trim().isEmpty
+          ? null
+          : _sectionTitleController.text.trim()),
+      pageNumber: Value(_pageNumberController.text.trim().isEmpty
+          ? null
+          : _pageNumberController.text.trim()),
+      updatedAt: Value(DateTime.now()),
+      content: Value(thought),
+    );
+
+    try {
+      await _db.readingMemosDao.updateMemo(updated);
+      if (mounted) {
+        setState(() {
+          _isEditing = false;
+        });
+        await _loadMemoAndEntries();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('メモを更新しました')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('更新に失敗しました: $e')),
+        );
+      }
+    }
+  }
+
+  void _cancelEdit() {
+    _syncControllersFromMemo();
+    setState(() {
+      _isEditing = false;
+    });
   }
 
   Future<void> _summarize() async {
@@ -473,7 +559,7 @@ $answer
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppPalette.reading.withOpacity(0.1),
+                      color: AppPalette.reading.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -482,8 +568,7 @@ $answer
                                 (s) => s.name == entry.thinkingStyleName,
                                 orElse: () => ThinkingStyle.socrates,
                               )
-                              .displayName ??
-                          entry.thinkingStyleName!,
+                              .displayName,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: AppPalette.reading,
                       ),
@@ -513,7 +598,7 @@ $answer
             Text(
               '${entry.createdAt.year}/${entry.createdAt.month}/${entry.createdAt.day} ${entry.createdAt.hour}:${entry.createdAt.minute.toString().padLeft(2, '0')}',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.secondary.withOpacity(0.6),
+                color: theme.colorScheme.secondary.withValues(alpha: 0.6),
               ),
             ),
           ],
@@ -543,6 +628,31 @@ $answer
     return Scaffold(
       appBar: AppBar(
         title: const Text('メモ詳細'),
+        actions: [
+          if (_isEditing) ...[
+            IconButton(
+              icon: const Icon(Icons.check),
+              onPressed: _saveEdits,
+              tooltip: '保存',
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: _cancelEdit,
+              tooltip: 'キャンセル',
+            ),
+          ] else ...[
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () {
+                _syncControllersFromMemo();
+                setState(() {
+                  _isEditing = true;
+                });
+              },
+              tooltip: '編集',
+            ),
+          ],
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -570,38 +680,57 @@ $answer
             const SizedBox(height: 16),
 
             // メタ情報
-            if (_memo!.sectionTitle != null &&
-                _memo!.sectionTitle!.isNotEmpty) ...{
-              Row(
-                children: [
-                  const Icon(Icons.topic, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _memo!.sectionTitle!,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: AppPalette.reading,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
+            if (_isEditing) ...[
+              TextField(
+                controller: _sectionTitleController,
+                decoration: const InputDecoration(
+                  labelText: '小タイトル（任意）',
+                  border: OutlineInputBorder(),
+                ),
               ),
-              const SizedBox(height: 8),
-            },
-            if (_memo!.pageNumber != null && _memo!.pageNumber!.isNotEmpty) ...{
-              Row(
-                children: [
-                  const Icon(Icons.numbers, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    'ページ: ${_memo!.pageNumber}',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: _pageNumberController,
+                decoration: const InputDecoration(
+                  labelText: 'ページ番号（任意）',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 16),
-            },
+            ] else ...[
+              if (_memo!.sectionTitle != null &&
+                  _memo!.sectionTitle!.isNotEmpty) ...{
+                Row(
+                  children: [
+                    const Icon(Icons.topic, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _memo!.sectionTitle!,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: AppPalette.reading,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              },
+              if (_memo!.pageNumber != null && _memo!.pageNumber!.isNotEmpty) ...{
+                Row(
+                  children: [
+                    const Icon(Icons.numbers, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'ページ: ${_memo!.pageNumber}',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              },
+            ],
 
             // 元のメモ本文
             Text(
@@ -614,48 +743,89 @@ $answer
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_memo!.excerptText != null &&
-                        _memo!.excerptText!.isNotEmpty) ...{
-                      Text(
-                        '本文抜粋',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: AppPalette.reading,
-                        ),
+                child: _isEditing
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_memo!.type == MemoType.excerpt) ...[
+                            Text(
+                              '本文抜粋',
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: AppPalette.reading,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _excerptController,
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                              ),
+                              maxLines: 5,
+                              minLines: 3,
+                            ),
+                            const SizedBox(height: 16),
+                            const Divider(),
+                            const SizedBox(height: 16),
+                            Text(
+                              '思考メモ',
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: AppPalette.reading,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          TextField(
+                            controller: _thoughtController,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                            ),
+                            maxLines: 6,
+                            minLines: 4,
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_memo!.excerptText != null &&
+                              _memo!.excerptText!.isNotEmpty) ...[
+                            Text(
+                              '本文抜粋',
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: AppPalette.reading,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SelectableContextText(
+                              text: _memo!.excerptText!,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            const Divider(),
+                            const SizedBox(height: 16),
+                            Text(
+                              '思考メモ',
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: AppPalette.reading,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          SelectableContextText(
+                            text: _memo!.content ?? _memo!.thoughtText,
+                            style: theme.textTheme.bodyLarge,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      SelectableContextText(
-                        text: _memo!.excerptText!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Divider(),
-                      const SizedBox(height: 16),
-                      Text(
-                        '思考メモ',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: AppPalette.reading,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    },
-                    SelectableContextText(
-                      text: _memo!.content ?? _memo!.thoughtText,
-                      style: theme.textTheme.bodyLarge,
-                    ),
-                  ],
-                ),
               ),
             ),
             const SizedBox(height: 8),
             Text(
               '作成日時: ${_memo!.createdAt.year}/${_memo!.createdAt.month}/${_memo!.createdAt.day} ${_memo!.createdAt.hour}:${_memo!.createdAt.minute.toString().padLeft(2, '0')}',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.secondary.withOpacity(0.6),
+                color: theme.colorScheme.secondary.withValues(alpha: 0.6),
               ),
             ),
             const SizedBox(height: 24),
@@ -786,7 +956,7 @@ $answer
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppPalette.reading.withOpacity(0.2),
+                      color: AppPalette.reading.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(

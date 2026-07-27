@@ -1,6 +1,6 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SearchResult {
@@ -8,23 +8,66 @@ class SearchResult {
   final String snippet;
   final String url;
 
-  SearchResult({
-    required this.title,
-    required this.snippet,
-    required this.url,
-  });
+  SearchResult({required this.title, required this.snippet, required this.url});
 }
 
 class SearchClient {
-  static final SearchClient instance = SearchClient._();
-  SearchClient._();
+  static SearchClient? _instance;
+  final String? _baseUrl;
+  final String? _googleApiKey;
+  final String? _googleSearchEngineId;
 
-  // Google Custom Search API の設定
-  String? get _googleApiKey => dotenv.env['GOOGLE_API_KEY'];
-  String? get _googleSearchEngineId => dotenv.env['GOOGLE_SEARCH_ENGINE_ID'];
+  SearchClient._({
+    String? baseUrl,
+    String? googleApiKey,
+    String? googleSearchEngineId,
+  }) : _baseUrl = baseUrl?.trim().isEmpty == true ? null : baseUrl?.trim(),
+       _googleApiKey = googleApiKey?.trim().isEmpty == true
+           ? null
+           : googleApiKey?.trim(),
+       _googleSearchEngineId = googleSearchEngineId?.trim().isEmpty == true
+           ? null
+           : googleSearchEngineId?.trim();
 
-  // Tavily API の設定
-  String? get _tavilyApiKey => dotenv.env['TAVILY_API_KEY'];
+  /// シングルトンインスタンスを取得
+  static SearchClient get instance {
+    if (_instance == null) {
+      throw Exception(
+        'SearchClient not initialized. Call SearchClient.initialize() first.',
+      );
+    }
+    return _instance!;
+  }
+
+  /// アプリ起動時に初期化（main.dartから呼ぶ）
+  static void initialize({
+    String? baseUrl,
+    String? googleApiKey,
+    String? googleSearchEngineId,
+  }) {
+    _instance = SearchClient._(
+      baseUrl: baseUrl,
+      googleApiKey: googleApiKey,
+      googleSearchEngineId: googleSearchEngineId,
+    );
+  }
+
+  /// 初期化済みかどうか
+  static bool get isInitialized => _instance != null;
+
+  /// Web検索が利用可能かどうか
+  static bool get canUseWebSearch =>
+      _instance != null && _instance!.isAvailable;
+
+  bool get _hasProxy => _baseUrl != null && _baseUrl.isNotEmpty;
+  bool get _hasDirectGoogle =>
+      _googleApiKey != null &&
+      _googleApiKey.isNotEmpty &&
+      _googleSearchEngineId != null &&
+      _googleSearchEngineId.isNotEmpty;
+
+  /// 検索プロキシまたは直接Google検索が利用可能かどうか
+  bool get isAvailable => _hasProxy || _hasDirectGoogle;
 
   // 1日の使用回数を追跡
   static const String _googleUsageKey = 'google_search_usage';
@@ -60,89 +103,38 @@ class SearchClient {
     return maxGoogleSearchesPerDay - used;
   }
 
-  /// Web検索を実行（Google API優先、超過時はTavily自動切り替え）
+  /// Web検索を実行（バックエンド経由）
   Future<List<SearchResult>> search(String query, {int maxResults = 5}) async {
-    // Google APIが使用可能か確認
-    final remaining = await getRemainingGoogleSearches();
-
-    if (remaining > 0 && _googleApiKey != null && _googleSearchEngineId != null) {
-      try {
-        final results = await _searchWithGoogle(query, maxResults: maxResults);
-        await _incrementGoogleUsage();
-        return results;
-      } catch (e) {
-        print('Google Search failed, falling back to Tavily: $e');
-        // Google失敗時はTavilyにフォールバック
-        return await _searchWithTavily(query, maxResults: maxResults);
-      }
-    } else {
-      // Google使用回数超過、またはAPI未設定の場合はTavilyを使用
-      return await _searchWithTavily(query, maxResults: maxResults);
-    }
-  }
-
-  /// Google Custom Search API で検索
-  Future<List<SearchResult>> _searchWithGoogle(String query, {int maxResults = 5}) async {
-    final url = Uri.parse(
-      'https://www.googleapis.com/customsearch/v1'
-      '?key=$_googleApiKey'
-      '&cx=$_googleSearchEngineId'
-      '&q=${Uri.encodeComponent(query)}'
-      '&num=$maxResults'
-      '&lr=lang_ja', // 日本語優先
-    );
-
-    final response = await http.get(url);
-
-    if (response.statusCode != 200) {
-      throw Exception('Google Search API error: ${response.statusCode}');
-    }
-
-    final data = jsonDecode(response.body);
-    final items = data['items'] as List<dynamic>? ?? [];
-
-    return items.map((item) {
-      return SearchResult(
-        title: item['title'] ?? '',
-        snippet: item['snippet'] ?? '',
-        url: item['link'] ?? '',
-      );
-    }).toList();
-  }
-
-  /// Tavily Search API で検索
-  Future<List<SearchResult>> _searchWithTavily(String query, {int maxResults = 5}) async {
-    if (_tavilyApiKey == null) {
-      throw Exception('Tavily API key not configured');
-    }
-
-    final url = Uri.parse('https://api.tavily.com/search');
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'api_key': _tavilyApiKey,
+    if (_hasProxy) {
+      final response = await _post('/api/search', {
         'query': query,
         'max_results': maxResults,
-        'search_depth': 'basic',
-        'include_answer': false,
-      }),
-    );
+      });
 
-    if (response.statusCode != 200) {
-      throw Exception('Tavily Search API error: ${response.statusCode}');
+      await _incrementGoogleUsage();
+
+      final results = response['results'] as List<dynamic>? ?? [];
+      return results.map((item) {
+        return SearchResult(
+          title: item['title'] ?? '',
+          snippet: item['snippet'] ?? '',
+          url: item['url'] ?? '',
+        );
+      }).toList();
     }
 
-    final data = jsonDecode(response.body);
-    final results = data['results'] as List<dynamic>? ?? [];
-
-    return results.map((item) {
-      return SearchResult(
-        title: item['title'] ?? '',
-        snippet: item['content'] ?? '',
-        url: item['url'] ?? '',
+    if (_hasDirectGoogle) {
+      final results = await _searchWithGoogleCustomSearch(
+        query,
+        maxResults: maxResults,
       );
-    }).toList();
+      await _incrementGoogleUsage();
+      return results;
+    }
+
+    throw Exception(
+      'Web search mode is not configured. Add SEARCH_PROXY_BASE_URL or GOOGLE_API_KEY + GOOGLE_SEARCH_ENGINE_ID to .env.',
+    );
   }
 
   /// 検索結果を文字列にフォーマット
@@ -163,5 +155,71 @@ class SearchClient {
     }
 
     return buffer.toString();
+  }
+
+  Future<Map<String, dynamic>> _post(
+    String path,
+    Map<String, dynamic> payload,
+  ) async {
+    final baseUrl = _baseUrl;
+    if (baseUrl == null || baseUrl.isEmpty) {
+      throw Exception('Search proxy base URL not configured.');
+    }
+
+    final uri = Uri.parse(baseUrl).replace(path: path);
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Search proxy error: ${response.statusCode}');
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<List<SearchResult>> _searchWithGoogleCustomSearch(
+    String query, {
+    int maxResults = 5,
+  }) async {
+    final apiKey = _googleApiKey;
+    final searchEngineId = _googleSearchEngineId;
+    if (apiKey == null ||
+        apiKey.isEmpty ||
+        searchEngineId == null ||
+        searchEngineId.isEmpty) {
+      throw Exception('Google Custom Search credentials are not configured.');
+    }
+
+    final num = maxResults.clamp(1, 10);
+    final uri = Uri.https('www.googleapis.com', '/customsearch/v1', {
+      'key': apiKey,
+      'cx': searchEngineId,
+      'q': query,
+      'num': '$num',
+      'hl': 'ja',
+      'safe': 'active',
+    });
+
+    final response = await http.get(uri);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      debugPrint(
+        '[SearchClient] Google Custom Search error: ${response.statusCode} ${response.body}',
+      );
+      throw Exception('Google search error: ${response.statusCode}');
+    }
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final items = decoded['items'] as List<dynamic>? ?? const [];
+    return items.map((item) {
+      final map = item as Map<String, dynamic>;
+      return SearchResult(
+        title: (map['title'] ?? '').toString(),
+        snippet: (map['snippet'] ?? '').toString(),
+        url: (map['link'] ?? '').toString(),
+      );
+    }).toList();
   }
 }

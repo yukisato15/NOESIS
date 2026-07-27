@@ -315,7 +315,7 @@ class _ConceptMemoDetailScreenState extends State<ConceptMemoDetailScreen> {
                 color: AppPalette.soften(AppPalette.thinking, 0.9),
                 borderRadius: BorderRadius.circular(12),
                 border:
-                    Border.all(color: AppPalette.thinking.withOpacity(0.3)),
+                    Border.all(color: AppPalette.thinking.withValues(alpha: 0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

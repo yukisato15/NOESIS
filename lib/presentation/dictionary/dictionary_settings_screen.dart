@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/local/database.dart';
+import '../../data/local/tables/dictionary_definitions_table.dart';
 import '../shared/surface_field.dart';
 
 class DictionarySettingsScreen extends StatefulWidget {
@@ -29,11 +30,20 @@ class _DictionarySettingsScreenState extends State<DictionarySettingsScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _categoryController = TextEditingController();
+  DictionaryReferenceDomain _referenceDomain =
+      DictionaryReferenceDomain.general;
 
   DictionaryDefinition? _definition;
   List<DictionaryField> _fields = [];
   bool _isWork = false;
   bool _isSaving = false;
+
+  bool get _isEnglishDictionary {
+    if (_definition?.referenceDomain == DictionaryReferenceDomain.english) {
+      return true;
+    }
+    return _definition?.category == 'english' || _definition?.name == '英語辞書';
+  }
 
   @override
   void initState() {
@@ -73,6 +83,7 @@ class _DictionarySettingsScreenState extends State<DictionarySettingsScreen> {
         _nameController.text = definition.name;
         _descriptionController.text = definition.description ?? '';
         _categoryController.text = definition.category ?? '';
+        _referenceDomain = definition.referenceDomain;
         _isWork = definition.isWork;
       });
     } catch (_) {
@@ -109,6 +120,7 @@ class _DictionarySettingsScreenState extends State<DictionarySettingsScreen> {
               ? null
               : _categoryController.text.trim(),
         ),
+        referenceDomain: _referenceDomain,
         updatedAt: DateTime.now(),
       );
 
@@ -258,6 +270,37 @@ class _DictionarySettingsScreenState extends State<DictionarySettingsScreen> {
                   controller: _categoryController,
                 ),
                 const SizedBox(height: 12),
+                Text(
+                  'URL参照の優先タイプ',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SegmentedButton<DictionaryReferenceDomain>(
+                  segments: const [
+                    ButtonSegment(
+                      value: DictionaryReferenceDomain.general,
+                      label: Text('一般'),
+                    ),
+                    ButtonSegment(
+                      value: DictionaryReferenceDomain.technology,
+                      label: Text('IT'),
+                    ),
+                    ButtonSegment(
+                      value: DictionaryReferenceDomain.english,
+                      label: Text('英語'),
+                    ),
+                  ],
+                  selected: {_referenceDomain},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (selection) {
+                    setState(() {
+                      _referenceDomain = selection.first;
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
                 SwitchListTile(
                   value: _isWork,
                   onChanged: _definition?.isSystem == true
@@ -275,11 +318,17 @@ class _DictionarySettingsScreenState extends State<DictionarySettingsScreen> {
                           field.fieldKey != 'definition',
                     )
                     .map(
-                      (field) => SwitchListTile(
-                        value: field.isEnabled,
-                        onChanged: (value) => _toggleField(field, value),
-                        title: Text(field.label),
-                      ),
+                      (field) {
+                        final label =
+                            _isEnglishDictionary && field.fieldKey == 'reading'
+                                ? '発音記号（IPA）'
+                                : field.label;
+                        return SwitchListTile(
+                          value: field.isEnabled,
+                          onChanged: (value) => _toggleField(field, value),
+                          title: Text(label),
+                        );
+                      },
                     ),
               ],
             ),

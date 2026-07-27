@@ -16,10 +16,8 @@ import 'widgets/thinking_style_selector.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
-import '../../data/local/tables/concept_dictionaries_table.dart';
 import '../../data/local/tables/philosophical_messages_table.dart';
 import '../shared/text_action_sheet.dart';
-import '../shared/surface_field.dart';
 
 class PhilosophicalDialogueDetailScreen extends StatefulWidget {
   final int dialogueId;
@@ -48,6 +46,8 @@ class _PhilosophicalDialogueDetailScreenState
   final Random _rng = Random();
   String _mentionQuery = '';
   bool _showMentions = false;
+  bool _showCriticalReflection = false;
+  bool _isSummaryExpanded = false;
 
   PhilosophicalDialogue? _dialogue;
   List<PhilosophicalMessage> _messages = [];
@@ -55,16 +55,19 @@ class _PhilosophicalDialogueDetailScreenState
   List<ThinkingStyle> _participants = [ThinkingStyle.socrates];
   bool _isSending = false;
   String? _selectedImagePath;
+  bool _isEditing = false;
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _summaryController = TextEditingController();
+  final TextEditingController _categoryController = TextEditingController();
+  final TextEditingController _tagsController = TextEditingController();
 
   // AIモード選択
   AIMode _selectedMode = AIMode.standard;
-  int _remainingSearches = 100;
 
   @override
   void initState() {
     super.initState();
     _loadDialogue();
-    _loadSearchUsage();
     _messageFocusNode.addListener(_syncComposerState);
     _messageController.addListener(_syncComposerState);
     if (widget.initialMessage != null &&
@@ -74,29 +77,132 @@ class _PhilosophicalDialogueDetailScreenState
     }
   }
 
-  Future<void> _loadSearchUsage() async {
-    final remaining = await SearchClient.instance.getRemainingGoogleSearches();
-    if (mounted) {
-      setState(() {
-        _remainingSearches = remaining;
-      });
-    }
-  }
 
   @override
   void dispose() {
-    if (widget.isDraft && _messages.isEmpty) {
-      Future.microtask(() async {
-        await (_db.delete(_db.philosophicalMessages)
-              ..where((t) => t.dialogueId.equals(widget.dialogueId)))
-            .go();
-        await _db.philosophicalDialoguesDao.deleteDialogue(widget.dialogueId);
-      });
-    }
+    _cleanupEmptyDialogue();
     _db.close();
     _messageController.dispose();
     _messageFocusNode.dispose();
+    _titleController.dispose();
+    _summaryController.dispose();
+    _categoryController.dispose();
+    _tagsController.dispose();
     super.dispose();
+  }
+
+  void _syncControllersFromDialogue() {
+    if (_dialogue == null) {
+      return;
+    }
+    _titleController.text = _dialogue!.title;
+    _summaryController.text = _dialogue!.summary ?? '';
+    _categoryController.text = _dialogue!.category ?? '';
+    _tagsController.text = _decodeTags(_dialogue!.tags).join(', ');
+  }
+
+  List<String> _decodeTags(String? raw) {
+    if (raw == null || raw.trim().isEmpty) {
+      return [];
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .map((e) => e.toString())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
+    } catch (_) {}
+    return raw
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  List<String> _parseTags(String input) {
+    final normalized = input.replaceAll('、', ',');
+    return normalized
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  void _enterEditMode() {
+    _syncControllersFromDialogue();
+    setState(() {
+      _isEditing = true;
+    });
+  }
+
+  void _cancelEdit() {
+    _syncControllersFromDialogue();
+    setState(() {
+      _isEditing = false;
+    });
+  }
+
+  Future<void> _saveEdits() async {
+    if (_dialogue == null) {
+      return;
+    }
+    final title = _titleController.text.trim();
+    final summary = _summaryController.text.trim();
+    final category = _categoryController.text.trim();
+    final tags = _parseTags(_tagsController.text);
+    final updated = _dialogue!.copyWith(
+      title: title.isEmpty ? '無題の対話' : title,
+      summary: Value(summary.isEmpty ? null : summary),
+      category: Value(category.isEmpty ? null : category),
+      tags: Value(tags.isEmpty ? null : jsonEncode(tags)),
+      updatedAt: DateTime.now(),
+    );
+    try {
+      await _db.philosophicalDialoguesDao.updateDialogue(updated);
+      if (mounted) {
+        setState(() {
+          _dialogue = updated;
+          _isEditing = false;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('編集内容を保存しました')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
+      }
+    }
+  }
+
+  void _cleanupEmptyDialogue() {
+    Future.microtask(() async {
+      final cleanupDb = AppDatabase();
+      try {
+        final countRow =
+            await (cleanupDb.selectOnly(cleanupDb.philosophicalMessages)
+                  ..addColumns([cleanupDb.philosophicalMessages.id.count()])
+                  ..where(
+                    cleanupDb.philosophicalMessages.dialogueId.equals(
+                      widget.dialogueId,
+                    ),
+                  ))
+                .getSingle();
+        final messageCount =
+            countRow.read(cleanupDb.philosophicalMessages.id.count()) ?? 0;
+        if (messageCount == 0) {
+          await cleanupDb.philosophicalDialoguesDao.deleteDialogue(
+            widget.dialogueId,
+          );
+        }
+      } finally {
+        await cleanupDb.close();
+      }
+    });
   }
 
   Future<void> _loadDialogue() async {
@@ -154,15 +260,13 @@ class _PhilosophicalDialogueDetailScreenState
       OpenAIChatCompletionChoiceMessageModel(
         role: OpenAIChatMessageRole.system,
         content: [
-          OpenAIChatCompletionChoiceMessageContentItemModel.text(
-            '''
+          OpenAIChatCompletionChoiceMessageContentItemModel.text('''
 あなたは哲学対話の参加者として話します。以下の参加者の人格・口調を守ってください。
 一人称、話し方、語尾、話題の切り口を厳密に反映してください。
 自分の名前を三人称で名乗らないでください。
 
 $participantsGuide
-''',
-          ),
+'''),
         ],
       ),
     ];
@@ -185,6 +289,91 @@ $participantsGuide
     }
 
     return chatMessages;
+  }
+
+  bool _isCriticalOnlyStyle(ThinkingStyle style) {
+    return style.persona.safetyPolicy.mode == ThinkingSafetyMode.criticalOnly;
+  }
+
+  bool _containsHarmfulRhetoric(String text) {
+    final patterns = <RegExp>[
+      RegExp(r'殲滅|排除|粛清|劣等|浄化|民族浄化'),
+      RegExp(r'憎め|叩け|追い出せ|攻撃せよ|制圧せよ'),
+      RegExp(r'人間以下|害悪な集団|存在価値がない'),
+    ];
+    return patterns.any((p) => p.hasMatch(text));
+  }
+
+  String _guardCriticalStyleOutput(ThinkingStyle style, String rawText) {
+    final text = rawText.trim();
+    if (!_isCriticalOnlyStyle(style) || text.isEmpty) {
+      return rawText;
+    }
+    final hasTemplate =
+        text.contains('【自己否定と歴史的反省】') && text.contains('【批判的再構成】');
+    if (hasTemplate) {
+      return text;
+    }
+    final harmful = _containsHarmfulRhetoric(text);
+    if (!harmful) {
+      // 通常の対話はそのまま返し、会話性を維持する。
+      return text;
+    }
+    final riskLine = harmful
+        ? '扇動・差別的レトリックが含まれており、歴史的に重大な過ちを再生産しうる。'
+        : '感情動員型の単純化が含まれ、判断の歪みを招く可能性がある。';
+
+    return '''
+$text
+
+【自己否定と歴史的反省】
+- $riskLine
+- このような語りは歴史上で深刻な人権侵害・暴力・排除の正当化に接続した。
+- この推論様式を支持しない。教育的な批判分析としてのみ扱う。
+
+【批判的再構成】
+- 主張を検証可能な事実に分解し、対立煽動ではなく制度・根拠・影響で再評価する。
+- 代替として、反証可能な論点整理と民主的手続きに基づく検討へ戻す。
+''';
+  }
+
+  bool _containsCriticalReflectionSections(String text) {
+    return text.contains('【自己否定と歴史的反省】') && text.contains('【批判的再構成】');
+  }
+
+  String _stripCriticalReflectionSections(String content) {
+    final marker = content.indexOf('【自己否定と歴史的反省】');
+    if (marker < 0) {
+      return content;
+    }
+    return content.substring(0, marker).trim();
+  }
+
+  String _displayMessageContent(String content) {
+    if (_showCriticalReflection) {
+      return content;
+    }
+    if (_containsCriticalReflectionSections(content)) {
+      final mainText = _stripCriticalReflectionSections(content);
+      if (mainText.isNotEmpty) {
+        return '$mainText\n\n（安全注記は非表示。必要なら「反省表示」をONにしてください）';
+      }
+      return '（安全注記は非表示です。「反省表示」をONにすると表示されます）';
+    }
+    return content;
+  }
+
+  ThinkingStyle? _findStyleByDisplayName(String? personaName) {
+    final name = (personaName ?? '').trim();
+    if (name.isEmpty) {
+      return null;
+    }
+    for (final style in ThinkingStyle.values) {
+      if (style.displayName == name) {
+        return style;
+      }
+    }
+    return null;
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -238,7 +427,6 @@ $participantsGuide
     );
   }
 
-
   Map<String, dynamic> _summarySchema() {
     return {
       'type': 'object',
@@ -246,67 +434,8 @@ $participantsGuide
         'dialogue_title': {'type': 'string'},
         'summary': {'type': 'string'},
       },
-      'required': [
-        'dialogue_title',
-        'summary',
-      ],
+      'required': ['dialogue_title', 'summary'],
     };
-  }
-
-  Future<void> _editTitle() async {
-    if (_dialogue == null) {
-      return;
-    }
-
-    final controller = TextEditingController(text: _dialogue!.title);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('タイトルを編集'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              labelText: 'タイトル',
-              hintText: '空でもOK',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('キャンセル'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(
-                controller.text.trim().isEmpty
-                    ? '無題の対話'
-                    : controller.text.trim(),
-              ),
-              child: const Text('保存'),
-            ),
-          ],
-        );
-      },
-    );
-
-    controller.dispose();
-
-    if (result == null) {
-      return;
-    }
-
-    final updated = _dialogue!.copyWith(
-      title: result,
-      updatedAt: DateTime.now(),
-    );
-
-    await _db.philosophicalDialoguesDao.updateDialogue(updated);
-
-    if (mounted) {
-      setState(() {
-        _dialogue = updated;
-      });
-    }
   }
 
   Future<void> _deleteDialogue() async {
@@ -338,9 +467,9 @@ $participantsGuide
       return;
     }
 
-    await (_db.delete(_db.philosophicalMessages)
-          ..where((t) => t.dialogueId.equals(widget.dialogueId)))
-        .go();
+    await (_db.delete(
+      _db.philosophicalMessages,
+    )..where((t) => t.dialogueId.equals(widget.dialogueId))).go();
     await _db.philosophicalDialoguesDao.deleteDialogue(widget.dialogueId);
 
     if (!mounted) {
@@ -352,9 +481,9 @@ $participantsGuide
 
   Future<void> _finishDialogue() async {
     if (_messages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('対話がありません。')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('対話がありません。')));
       return;
     }
 
@@ -363,9 +492,7 @@ $participantsGuide
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('対話を終了'),
-          content: const Text(
-            '対話を終了します。\n\nAIが対話内容からタグとカテゴリを自動的に付与します。',
-          ),
+          content: const Text('対話を終了します。\n\nAIが対話内容からタグとカテゴリを自動的に付与します。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -387,11 +514,14 @@ $participantsGuide
     // タグとカテゴリだけを自動付与
     try {
       final conversation = _messages
-          .map((msg) =>
-              '[${msg.role == DialogueRole.user ? 'ユーザー' : 'AI'}] ${_formatMessageForAI(msg)}')
+          .map(
+            (msg) =>
+                '[${msg.role == DialogueRole.user ? 'ユーザー' : 'AI'}] ${_formatMessageForAI(msg)}',
+          )
           .join('\n');
 
-      final prompt = '''
+      final prompt =
+          '''
 以下の対話ログから、適切なカテゴリとタグを抽出してください。
 
 # 対話ログ
@@ -418,11 +548,6 @@ $conversation
         mode: _selectedMode,
       );
 
-      // 検索使用後、残り回数を更新
-      if (_selectedMode == AIMode.withSearch) {
-        await _loadSearchUsage();
-      }
-
       final category = (json['category'] ?? '').toString().trim();
       final tags = json['tags'] as List<dynamic>?;
 
@@ -430,7 +555,10 @@ $conversation
         // タグをJSON配列に変換
         String? tagsJson;
         if (tags != null && tags.isNotEmpty) {
-          final tagsList = tags.map((t) => t.toString().trim()).where((t) => t.isNotEmpty).toList();
+          final tagsList = tags
+              .map((t) => t.toString().trim())
+              .where((t) => t.isNotEmpty)
+              .toList();
           if (tagsList.isNotEmpty) {
             tagsJson = jsonEncode(tagsList);
           }
@@ -455,7 +583,9 @@ $conversation
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('カテゴリとタグを付与しました\n\nカテゴリ: ${category.isEmpty ? 'なし' : category}\nタグ: $tagsText'),
+              content: Text(
+                'カテゴリとタグを付与しました\n\nカテゴリ: ${category.isEmpty ? 'なし' : category}\nタグ: $tagsText',
+              ),
               duration: const Duration(seconds: 4),
             ),
           );
@@ -463,28 +593,31 @@ $conversation
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('タグ・カテゴリの付与に失敗しました')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('タグ・カテゴリの付与に失敗しました')));
       }
     }
   }
 
   Future<void> _summarizeDialogue() async {
     if (_messages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('対話がありません。')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('対話がありません。')));
       return;
     }
 
     try {
       final conversation = _messages
-          .map((msg) =>
-              '[${msg.role == DialogueRole.user ? 'ユーザー' : 'AI'}] ${_formatMessageForAI(msg)}')
+          .map(
+            (msg) =>
+                '[${msg.role == DialogueRole.user ? 'ユーザー' : 'AI'}] ${_formatMessageForAI(msg)}',
+          )
           .join('\n');
 
-      final prompt = '''
+      final prompt =
+          '''
 以下の対話ログを会話の要約として短く整理し、タイトル案を付けてください。
 
 # 対話ログ
@@ -505,7 +638,8 @@ $conversation
       final dialogueTitle = (json['dialogue_title'] ?? '').toString().trim();
 
       if (_dialogue != null && summary.isNotEmpty) {
-        final updatedTitle = (dialogueTitle.isNotEmpty &&
+        final updatedTitle =
+            (dialogueTitle.isNotEmpty &&
                 (_dialogue!.title.trim().isEmpty ||
                     _dialogue!.title.trim() == '無題の対話'))
             ? dialogueTitle
@@ -522,11 +656,6 @@ $conversation
             _dialogue = updated;
           });
         }
-      }
-
-      // 検索使用後、残り回数を更新
-      if (_selectedMode == AIMode.withSearch) {
-        await _loadSearchUsage();
       }
 
       if (!mounted) {
@@ -561,9 +690,9 @@ $conversation
       );
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('AI要約に失敗しました')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('AI要約に失敗しました')));
       }
     }
   }
@@ -637,9 +766,9 @@ $conversation
   }
 
   Future<void> _deleteMessage(PhilosophicalMessage message) async {
-    await (_db.delete(_db.philosophicalMessages)
-          ..where((t) => t.id.equals(message.id)))
-        .go();
+    await (_db.delete(
+      _db.philosophicalMessages,
+    )..where((t) => t.id.equals(message.id))).go();
 
     if (mounted) {
       setState(() {
@@ -669,9 +798,8 @@ $conversation
               child: const Text('キャンセル'),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(
-                controller.text.trim(),
-              ),
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(controller.text.trim()),
               child: const Text('修正する'),
             ),
           ],
@@ -686,7 +814,8 @@ $conversation
     }
 
     try {
-      final prompt = '''
+      final prompt =
+          '''
 以下のAI応答を、ユーザーの指示に従って修正してください。
 
 # 元の応答
@@ -710,17 +839,21 @@ $instruction
       );
 
       if (response.trim().isNotEmpty) {
+        final style = _findStyleByDisplayName(message.persona);
+        final safeText = style == null
+            ? response
+            : _guardCriticalStyleOutput(style, response);
         final assistantMessage = PhilosophicalMessagesCompanion.insert(
           dialogueId: widget.dialogueId,
           role: DialogueRole.assistant,
           inputType: const Value(DialogueInputType.text),
-          content: Value(response),
+          content: Value(safeText),
           persona: Value(message.persona),
           createdAt: Value(DateTime.now()),
         );
 
-        final assistantMessageId =
-            await _db.philosophicalDialoguesDao.addMessage(assistantMessage);
+        final assistantMessageId = await _db.philosophicalDialoguesDao
+            .addMessage(assistantMessage);
 
         if (mounted) {
           setState(() {
@@ -731,7 +864,7 @@ $instruction
                 dialogueId: widget.dialogueId,
                 role: DialogueRole.assistant,
                 inputType: DialogueInputType.text,
-                content: response,
+                content: safeText,
                 persona: message.persona,
                 imagePath: null,
                 createdAt: DateTime.now(),
@@ -744,9 +877,9 @@ $instruction
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('AI修正に失敗しました')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('AI修正に失敗しました')));
       }
     }
   }
@@ -832,21 +965,28 @@ $instruction
           : _participants;
       final mentioned = _resolveMentionedParticipants(content, participants);
       final responders = _selectResponders(mentioned, participants);
-      final responderNames =
-          responders.map((s) => s.displayName).join('、');
+      final responderNames = responders.map((s) => s.displayName).join('、');
+      final hasCriticalResponder = responders.any(_isCriticalOnlyStyle);
       chatMessages.add(
         OpenAIChatCompletionChoiceMessageModel(
           role: OpenAIChatMessageRole.system,
           content: [
-            OpenAIChatCompletionChoiceMessageContentItemModel.text(
-              '''
+            OpenAIChatCompletionChoiceMessageContentItemModel.text('''
 このターンの応答話者は次の人物のみ: $responderNames
 以下のJSON配列で返答してください。
 [
   {"speaker": "話者名", "text": "発言内容"}
 ]
-''',
-            ),
+${hasCriticalResponder ? '''
+critical_only 話者が含まれる場合:
+- 通常は自然な対話文で返すこと（毎回テンプレ見出しで埋めない）
+- 差別・扇動・攻撃の有害主張を含む場合のみ、末尾に次の2見出しを追加すること:
+  - 【自己否定と歴史的反省】
+  - 【批判的再構成】
+- 上記以外の見出し（例: 【観察対象】, 【偏差スコア(0-5)】, 【誤謬タグ】, 【バイアス/誤謬】）は出力しないこと。
+- 有害主張は推奨せず、必ず批判的文脈で扱うこと。
+''' : ''}
+'''),
           ],
         ),
       );
@@ -856,8 +996,10 @@ $instruction
         throw Exception('AI応答が空です');
       }
 
-      final assistantMessages =
-          await _buildAssistantMessagesFromResponse(response, responders);
+      final assistantMessages = await _buildAssistantMessagesFromResponse(
+        response,
+        responders,
+      );
 
       if (mounted && assistantMessages.isNotEmpty) {
         setState(() {
@@ -888,13 +1030,12 @@ $instruction
     final isUser = message.role == DialogueRole.user;
     final theme = Theme.of(context);
     final bubbleColor = isUser
-        ? AppPalette.thinking.withOpacity(0.85)
+        ? AppPalette.thinking.withValues(alpha: 0.85)
         : theme.colorScheme.surface;
     final borderColor = AppPalette.soften(AppPalette.thinking, 0.4);
-    final contentColor =
-        isUser ? Colors.white : theme.colorScheme.onSurface;
+    final contentColor = isUser ? Colors.white : theme.colorScheme.onSurface;
     final headerColor = isUser
-        ? Colors.white.withOpacity(0.85)
+        ? Colors.white.withValues(alpha: 0.85)
         : theme.colorScheme.secondary;
 
     final headerText =
@@ -903,25 +1044,30 @@ $instruction
     final imagePath = message.imagePath;
     final hasImage = imagePath != null && File(imagePath).existsSync();
     final content = message.content.trim();
+    final displayContent = _displayMessageContent(content);
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 320),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.78,
+        ),
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: bubbleColor,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: borderColor.withOpacity(0.4)),
+          border: Border.all(color: borderColor.withValues(alpha: 0.4)),
         ),
         child: Column(
-          crossAxisAlignment:
-              isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isUser
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment:
-                  isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+              mainAxisAlignment: isUser
+                  ? MainAxisAlignment.end
+                  : MainAxisAlignment.start,
               children: [
                 Expanded(
                   child: Text(
@@ -933,11 +1079,7 @@ $instruction
                 ),
                 IconButton(
                   onPressed: () => _showMessageActions(message),
-                  icon: Icon(
-                    Icons.more_horiz,
-                    size: 18,
-                    color: headerColor,
-                  ),
+                  icon: Icon(Icons.more_horiz, size: 18, color: headerColor),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   tooltip: 'メニュー',
@@ -951,20 +1093,20 @@ $instruction
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: Image.file(
-                          File(imagePath!),
+                          File(imagePath),
                           height: 160,
-                          width: 220,
+                          width: double.infinity,
                           fit: BoxFit.cover,
                         ),
                       )
                     : Container(
                         height: 120,
-                        width: 220,
+                        width: double.infinity,
                         decoration: BoxDecoration(
                           color: AppPalette.soften(AppPalette.thinking, 0.9),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: borderColor.withOpacity(0.4),
+                            color: borderColor.withValues(alpha: 0.4),
                           ),
                         ),
                         child: const Center(
@@ -972,11 +1114,11 @@ $instruction
                         ),
                       ),
               ),
-            if (content.isNotEmpty)
+            if (displayContent.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: SelectableContextText(
-                  text: content,
+                  text: displayContent,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: contentColor,
                   ),
@@ -991,20 +1133,14 @@ $instruction
   Widget _buildInputTypeSelector() {
     return SegmentedButton<DialogueInputType>(
       segments: const [
-        ButtonSegment(
-          value: DialogueInputType.text,
-          label: Text('テキスト'),
-        ),
-        ButtonSegment(
-          value: DialogueInputType.image,
-          label: Text('画像'),
-        ),
+        ButtonSegment(value: DialogueInputType.text, label: Text('テキスト')),
+        ButtonSegment(value: DialogueInputType.image, label: Text('画像')),
       ],
       selected: {_inputType},
       showSelectedIcon: false,
       style: ButtonStyle(
         visualDensity: VisualDensity.compact,
-        padding: MaterialStateProperty.all(
+        padding: WidgetStateProperty.all(
           const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
       ),
@@ -1020,20 +1156,20 @@ $instruction
   }
 
   Widget _buildAIModeSelector() {
+    final availableModes = AIMode.values
+        .where(
+          (mode) => mode != AIMode.withSearch || SearchClient.canUseWebSearch,
+        )
+        .toList();
     return SegmentedButton<AIMode>(
-      segments: AIMode.values
-          .map(
-            (mode) => ButtonSegment(
-              value: mode,
-              label: Text(mode.label),
-            ),
-          )
+      segments: availableModes
+          .map((mode) => ButtonSegment(value: mode, label: Text(mode.label)))
           .toList(),
       selected: {_selectedMode},
       showSelectedIcon: false,
       style: ButtonStyle(
         visualDensity: VisualDensity.compact,
-        padding: MaterialStateProperty.all(
+        padding: WidgetStateProperty.all(
           const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
       ),
@@ -1046,13 +1182,18 @@ $instruction
   }
 
   Future<void> _showAIModeSheet() async {
+    final availableModes = AIMode.values
+        .where(
+          (mode) => mode != AIMode.withSearch || SearchClient.canUseWebSearch,
+        )
+        .toList();
     final selected = await showModalBottomSheet<AIMode>(
       context: context,
       builder: (sheetContext) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: AIMode.values
+            children: availableModes
                 .map(
                   (mode) => ListTile(
                     title: Text(mode.label),
@@ -1085,7 +1226,9 @@ $instruction
                 .map(
                   (type) => ListTile(
                     title: Text(type == DialogueInputType.text ? 'テキスト' : '画像'),
-                    trailing: type == _inputType ? const Icon(Icons.check) : null,
+                    trailing: type == _inputType
+                        ? const Icon(Icons.check)
+                        : null,
                     onTap: () => Navigator.of(sheetContext).pop(type),
                   ),
                 )
@@ -1110,8 +1253,8 @@ $instruction
     final label = names.isEmpty
         ? '参加者未設定'
         : names.length <= 2
-            ? names.join('・')
-            : '${names.take(2).join('・')} +${names.length - 2}';
+        ? names.join('・')
+        : '${names.take(2).join('・')} +${names.length - 2}';
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
       child: Wrap(
@@ -1145,16 +1288,14 @@ $instruction
                                   : () async {
                                       final result =
                                           await showThinkingStyleMultiSelector(
-                                        context,
-                                        current: _participants,
-                                        maxSelection: 4,
-                                      );
+                                            context,
+                                            current: _participants,
+                                            maxSelection: 8,
+                                          );
                                       if (result != null &&
                                           result.isNotEmpty &&
                                           mounted) {
-                                        setState(
-                                          () => _participants = result,
-                                        );
+                                        setState(() => _participants = result);
                                       }
                                       if (sheetContext.mounted) {
                                         Navigator.of(sheetContext).pop();
@@ -1179,7 +1320,7 @@ $instruction
                 color: AppPalette.soften(AppPalette.thinking, 0.9),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: AppPalette.thinking.withOpacity(0.35),
+                  color: AppPalette.thinking.withValues(alpha: 0.35),
                 ),
               ),
               child: Row(
@@ -1211,7 +1352,7 @@ $instruction
                 color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: theme.colorScheme.primary.withOpacity(0.08),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.08),
                 ),
               ),
               child: Row(
@@ -1233,14 +1374,42 @@ $instruction
                 color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: theme.colorScheme.primary.withOpacity(0.08),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.08),
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _inputType == DialogueInputType.text ? '入力: テキスト' : '入力: 画像',
+                    _inputType == DialogueInputType.text
+                        ? '入力: テキスト'
+                        : '入力: 画像',
+                    style: theme.textTheme.labelMedium,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _showCriticalReflection = !_showCriticalReflection;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '反省表示: ${_showCriticalReflection ? 'ON' : 'OFF'}',
                     style: theme.textTheme.labelMedium,
                   ),
                 ],
@@ -1308,9 +1477,7 @@ $instruction
     if (query.isEmpty) {
       return candidates;
     }
-    return candidates
-        .where((c) => c.toLowerCase().contains(query))
-        .toList();
+    return candidates.where((c) => c.toLowerCase().contains(query)).toList();
   }
 
   void _insertMention(String name) {
@@ -1340,8 +1507,9 @@ $instruction
     String content,
     List<ThinkingStyle> participants,
   ) {
-    final mentionMatches =
-        RegExp(r'@([^\s　,、]+)').allMatches(content).map((m) => m.group(1));
+    final mentionMatches = RegExp(
+      r'@([^\s　,、]+)',
+    ).allMatches(content).map((m) => m.group(1));
     final mentions = mentionMatches.whereType<String>().toList();
     if (mentions.any((m) => m.toLowerCase() == 'all' || m == '全員')) {
       return participants.toSet();
@@ -1378,8 +1546,9 @@ $instruction
     final primary = participants[_rng.nextInt(participants.length)];
     final responders = <ThinkingStyle>[primary];
     if (participants.length > 1 && _rng.nextDouble() < 0.2) {
-      final remaining =
-          participants.where((p) => p != primary).toList(growable: false);
+      final remaining = participants
+          .where((p) => p != primary)
+          .toList(growable: false);
       if (remaining.isNotEmpty) {
         responders.add(remaining[_rng.nextInt(remaining.length)]);
       }
@@ -1416,7 +1585,8 @@ $instruction
     List<ThinkingStyle> responders,
   ) async {
     final responderMap = {
-      for (final style in responders) _normalizeMention(style.displayName): style
+      for (final style in responders)
+        _normalizeMention(style.displayName): style,
     };
     final messages = <PhilosophicalMessage>[];
     final now = DateTime.now();
@@ -1437,12 +1607,13 @@ $instruction
       final fallback = responders.isNotEmpty
           ? responders.first
           : ThinkingStyle.socrates;
+      final safeText = _guardCriticalStyleOutput(fallback, response);
       final id = await _db.philosophicalDialoguesDao.addMessage(
         PhilosophicalMessagesCompanion.insert(
           dialogueId: widget.dialogueId,
           role: DialogueRole.assistant,
           inputType: const Value(DialogueInputType.text),
-          content: Value(response),
+          content: Value(safeText),
           persona: Value(fallback.displayName),
           createdAt: Value(now),
         ),
@@ -1453,7 +1624,7 @@ $instruction
           dialogueId: widget.dialogueId,
           role: DialogueRole.assistant,
           inputType: DialogueInputType.text,
-          content: response,
+          content: safeText,
           persona: fallback.displayName,
           imagePath: null,
           createdAt: now,
@@ -1475,12 +1646,13 @@ $instruction
       if (style == null) {
         continue;
       }
+      final guardedText = _guardCriticalStyleOutput(style, text);
       final id = await _db.philosophicalDialoguesDao.addMessage(
         PhilosophicalMessagesCompanion.insert(
           dialogueId: widget.dialogueId,
           role: DialogueRole.assistant,
           inputType: const Value(DialogueInputType.text),
-          content: Value(text),
+          content: Value(guardedText),
           persona: Value(style.displayName),
           createdAt: Value(now),
         ),
@@ -1491,7 +1663,7 @@ $instruction
           dialogueId: widget.dialogueId,
           role: DialogueRole.assistant,
           inputType: DialogueInputType.text,
-          content: text,
+          content: guardedText,
           persona: style.displayName,
           imagePath: null,
           createdAt: now,
@@ -1503,12 +1675,13 @@ $instruction
       final fallback = responders.isNotEmpty
           ? responders.first
           : ThinkingStyle.socrates;
+      final safeText = _guardCriticalStyleOutput(fallback, response);
       final id = await _db.philosophicalDialoguesDao.addMessage(
         PhilosophicalMessagesCompanion.insert(
           dialogueId: widget.dialogueId,
           role: DialogueRole.assistant,
           inputType: const Value(DialogueInputType.text),
-          content: Value(response),
+          content: Value(safeText),
           persona: Value(fallback.displayName),
           createdAt: Value(now),
         ),
@@ -1519,7 +1692,7 @@ $instruction
           dialogueId: widget.dialogueId,
           role: DialogueRole.assistant,
           inputType: DialogueInputType.text,
-          content: response,
+          content: safeText,
           persona: fallback.displayName,
           imagePath: null,
           createdAt: now,
@@ -1537,9 +1710,7 @@ $instruction
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         border: Border(
-          top: BorderSide(
-            color: theme.colorScheme.secondary.withOpacity(0.15),
-          ),
+          top: BorderSide(color: theme.colorScheme.secondary.withValues(alpha: 0.15)),
         ),
       ),
       child: Column(
@@ -1557,9 +1728,7 @@ $instruction
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    _selectedImagePath == null
-                        ? '画像が未選択です'
-                        : '画像を選択しました',
+                    _selectedImagePath == null ? '画像が未選択です' : '画像を選択しました',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.secondary,
                     ),
@@ -1579,11 +1748,11 @@ $instruction
                     color: theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: theme.colorScheme.primary.withOpacity(0.08),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.08),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
+                        color: Colors.black.withValues(alpha: 0.03),
                         blurRadius: 12,
                         offset: const Offset(0, 6),
                       ),
@@ -1606,8 +1775,10 @@ $instruction
                           ),
                         ),
                       ),
-                      prefixIconConstraints:
-                          const BoxConstraints(minWidth: 0, minHeight: 0),
+                      prefixIconConstraints: const BoxConstraints(
+                        minWidth: 0,
+                        minHeight: 0,
+                      ),
                       hintText: _inputType == DialogueInputType.image
                           ? '画像の意図やメモを書いてください'
                           : '対話を入力してください',
@@ -1646,7 +1817,7 @@ $instruction
                   color: theme.colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: theme.colorScheme.primary.withOpacity(0.08),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
                   ),
                 ),
                 child: Column(
@@ -1678,32 +1849,50 @@ $instruction
       appBar: AppBar(
         title: Text(_dialogue?.title ?? '哲学的対話'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            tooltip: 'タイトルを編集',
-            onPressed: _editTitle,
-          ),
-          IconButton(
-            icon: const Icon(Icons.check_circle_outline),
-            tooltip: '対話を終了',
-            onPressed: _finishDialogue,
-          ),
-          IconButton(
-            icon: const Icon(Icons.auto_fix_high),
-            tooltip: 'AI要約',
-            onPressed: _summarizeDialogue,
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: '対話を削除',
-            onPressed: _deleteDialogue,
-          ),
+          if (_isEditing) ...[
+            IconButton(
+              icon: const Icon(Icons.check),
+              tooltip: '保存',
+              onPressed: _saveEdits,
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: 'キャンセル',
+              onPressed: _cancelEdit,
+            ),
+          ] else ...[
+            IconButton(
+              icon: const Icon(Icons.edit),
+              tooltip: '編集',
+              onPressed: _enterEditMode,
+            ),
+            IconButton(
+              icon: const Icon(Icons.check_circle_outline),
+              tooltip: '対話を終了',
+              onPressed: _finishDialogue,
+            ),
+            IconButton(
+              icon: const Icon(Icons.auto_fix_high),
+              tooltip: 'AI要約',
+              onPressed: _summarizeDialogue,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: '対話を削除',
+              onPressed: _deleteDialogue,
+            ),
+          ],
         ],
       ),
       body: SafeArea(
         top: false,
         child: Column(
           children: [
+            if (_dialogue != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: _buildDialogueMeta(theme),
+              ),
             _buildTopControls(theme),
             Expanded(
               child: _messages.isEmpty
@@ -1714,13 +1903,10 @@ $instruction
                           Icon(
                             Icons.forum_outlined,
                             size: 64,
-                            color: theme.colorScheme.secondary.withOpacity(0.4),
+                            color: theme.colorScheme.secondary.withValues(alpha: 0.4),
                           ),
                           const SizedBox(height: 16),
-                          Text(
-                            '対話がまだありません',
-                            style: theme.textTheme.bodyLarge,
-                          ),
+                          Text('対話がまだありません', style: theme.textTheme.bodyLarge),
                           const SizedBox(height: 8),
                           Text(
                             '入力して対話を始めましょう',
@@ -1752,6 +1938,121 @@ $instruction
         child: SafeArea(
           top: false,
           child: _buildComposer(theme, isKeyboardOpen),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDialogueMeta(ThemeData theme) {
+    final tags = _decodeTags(_dialogue?.tags);
+    final hasMeta =
+        (_dialogue?.summary ?? '').trim().isNotEmpty ||
+        (_dialogue?.category ?? '').trim().isNotEmpty ||
+        tags.isNotEmpty;
+    if (!_isEditing && !hasMeta) {
+      return const SizedBox.shrink();
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_isEditing) ...[
+              TextField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'タイトル',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _summaryController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: '要約',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _categoryController,
+                decoration: const InputDecoration(
+                  labelText: 'カテゴリ',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _tagsController,
+                decoration: const InputDecoration(
+                  labelText: 'タグ',
+                  hintText: 'カンマ区切り',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ] else ...[
+              if ((_dialogue?.summary ?? '').trim().isNotEmpty) ...[
+                Row(
+                  children: [
+                    Text(
+                      '要約',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _isSummaryExpanded = !_isSummaryExpanded;
+                        });
+                      },
+                      icon: Icon(
+                        _isSummaryExpanded
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                        size: 18,
+                      ),
+                      label: Text(_isSummaryExpanded ? '閉じる' : '表示'),
+                    ),
+                  ],
+                ),
+                if (_isSummaryExpanded) ...[
+                  const SizedBox(height: 6),
+                  SelectableContextText(
+                    text: _dialogue!.summary!.trim(),
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
+                const SizedBox(height: 12),
+              ],
+              if ((_dialogue?.category ?? '').trim().isNotEmpty)
+                Row(
+                  children: [
+                    const Icon(Icons.folder, size: 16),
+                    const SizedBox(width: 6),
+                    Text(_dialogue!.category!.trim()),
+                  ],
+                ),
+              if (tags.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: tags
+                      .map(
+                        (tag) => Chip(
+                          label: Text(tag),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+            ],
+          ],
         ),
       ),
     );

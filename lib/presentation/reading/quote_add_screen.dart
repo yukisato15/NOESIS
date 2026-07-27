@@ -1,11 +1,8 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../core/utils/text_normalizer.dart';
 import '../../core/widgets/live_text_image_view.dart';

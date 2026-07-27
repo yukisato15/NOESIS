@@ -85,7 +85,7 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
         _quotes = quotes;
         _titleController.text = entry.title;
         _bodyController.text = entry.body;
-        _bookController.text = entry.reading ?? '';
+        _bookController.text = entry.reading;
         _genreController.text = entry.genre ?? '';
         _isLoading = false;
       });
@@ -188,7 +188,7 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
       final prompt = DictionaryPrompts.promoteFromReadingNote(
         title: _entry!.title,
         body: _entry!.body,
-        bookTitle: _entry!.reading ?? '不明な書籍',
+        bookTitle: _entry!.reading,
       );
 
       final jsonSchema = {
@@ -256,7 +256,7 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
       MaterialPageRoute(
         builder: (_) => QuoteAddScreen(
           entryId: widget.entryId,
-          bookTitle: _entry!.reading ?? '書籍名未設定',
+          bookTitle: _entry!.reading,
         ),
       ),
     );
@@ -311,7 +311,7 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
                 setState(() {
                   _titleController.text = _entry!.title;
                   _bodyController.text = _entry!.body;
-                  _bookController.text = _entry!.reading ?? '';
+                  _bookController.text = _entry!.reading;
                   _genreController.text = _entry!.genre ?? '';
                   _isEditing = false;
                 });
@@ -374,7 +374,7 @@ class _ReadingDetailScreenState extends State<ReadingDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SelectableContextText(
-                        text: _entry!.reading ?? '書籍名未設定',
+                        text: _entry!.reading,
                         maxLines: 2,
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: AppPalette.reading,

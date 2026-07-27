@@ -31,6 +31,28 @@ class _PhilosophicalDialogueListScreenState
     super.dispose();
   }
 
+  Future<void> _startDialogue() async {
+    final id = await _db.philosophicalDialoguesDao.createDialogue(
+      PhilosophicalDialoguesCompanion.insert(title: '無題の対話'),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PhilosophicalDialogueDetailScreen(
+          dialogueId: id,
+          isDraft: true,
+        ),
+      ),
+    );
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   String _formatDate(DateTime date) {
     return DateFormat('yyyy/MM/dd HH:mm').format(date);
   }
@@ -268,7 +290,7 @@ $conversation
                   Icon(
                     Icons.forum_outlined,
                     size: 64,
-                    color: theme.colorScheme.secondary.withOpacity(0.4),
+                    color: theme.colorScheme.secondary.withValues(alpha: 0.4),
                   ),
                   const SizedBox(height: 16),
                   Text('対話がありません', style: theme.textTheme.bodyLarge),
@@ -364,6 +386,13 @@ $conversation
             },
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _startDialogue,
+        backgroundColor: AppPalette.thinking,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('対話を追加'),
       ),
     );
   }

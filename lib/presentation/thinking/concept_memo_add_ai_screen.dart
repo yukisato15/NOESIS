@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
 import '../../data/local/database.dart';
 import '../../core/ai/ai_client.dart';
 import '../../core/ai/prompts/thinking_prompts.dart';
@@ -266,7 +265,7 @@ class _ConceptMemoAddAIScreenState extends State<ConceptMemoAddAIScreen> {
                             return Chip(
                               label: Text(concept.toString()),
                               backgroundColor:
-                                  theme.colorScheme.secondary.withOpacity(0.12),
+                                  theme.colorScheme.secondary.withValues(alpha: 0.12),
                             );
                           }).toList(),
                         ),
@@ -291,11 +290,11 @@ class _ConceptMemoAddAIScreenState extends State<ConceptMemoAddAIScreen> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: theme.colorScheme.secondary
-                                    .withOpacity(0.06),
+                                    .withValues(alpha: 0.06),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: theme.colorScheme.secondary
-                                      .withOpacity(0.2),
+                                      .withValues(alpha: 0.2),
                                 ),
                               ),
                               child: Row(

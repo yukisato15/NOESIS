@@ -50,6 +50,8 @@ class _DictionaryAddAIScreenState extends State<DictionaryAddAIScreen> {
     super.dispose();
   }
 
+  bool get _isEnglishDomain => _selectedDomain == DictionaryDomain.english;
+
   String _listToText(dynamic value) {
     if (value is List) {
       return value.map((item) => item.toString()).join('\n');
@@ -309,7 +311,7 @@ class _DictionaryAddAIScreenState extends State<DictionaryAddAIScreen> {
                     ),
                     const SizedBox(height: 16),
                     SurfaceField(
-                      label: '読み仮名',
+                      label: _isEnglishDomain ? '発音記号（IPA）' : '読み方',
                       controller: _readingController,
                     ),
                     const SizedBox(height: 16),

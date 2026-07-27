@@ -25,6 +25,7 @@ class SelectableContextText extends StatefulWidget {
   final Function(String selectedText)? onAddToDailyMemo;
   final Function(String selectedText)? onAskAboutCode;
   final bool enableDefaultActions;
+  final VoidCallback? onTap;
 
   const SelectableContextText({
     super.key,
@@ -39,6 +40,7 @@ class SelectableContextText extends StatefulWidget {
     this.onAddToDailyMemo,
     this.onAskAboutCode,
     this.enableDefaultActions = true,
+    this.onTap,
   });
 
   @override
@@ -48,10 +50,23 @@ class SelectableContextText extends StatefulWidget {
 class _SelectableContextTextState extends State<SelectableContextText> {
   _ContextAction? _pendingAction;
   String? _pendingText;
+  DateTime? _lastTapDownAt;
+  Offset? _lastTapDownPosition;
+
+  bool _isTapCandidate(DateTime upAt, Offset upPosition) {
+    final downAt = _lastTapDownAt;
+    final downPos = _lastTapDownPosition;
+    if (downAt == null || downPos == null) {
+      return false;
+    }
+    final elapsed = upAt.difference(downAt);
+    final moved = (upPosition - downPos).distance;
+    return elapsed.inMilliseconds <= 300 && moved <= 8;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SelectableText(
+    final child = SelectableText(
       widget.text,
       style: widget.style,
       maxLines: widget.maxLines,
@@ -234,6 +249,22 @@ class _SelectableContextTextState extends State<SelectableContextText> {
           ],
         );
       },
+    );
+    if (widget.onTap == null) {
+      return child;
+    }
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (event) {
+        _lastTapDownAt = DateTime.now();
+        _lastTapDownPosition = event.position;
+      },
+      onPointerUp: (event) {
+        if (_isTapCandidate(DateTime.now(), event.position)) {
+          widget.onTap?.call();
+        }
+      },
+      child: child,
     );
   }
 

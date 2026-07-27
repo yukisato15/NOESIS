@@ -27,11 +27,11 @@ class SurfaceCard extends StatelessWidget {
         color: color ?? theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
-          color: theme.colorScheme.primary.withOpacity(0.08),
+          color: theme.colorScheme.primary.withValues(alpha: 0.08),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 10),
           ),
@@ -74,7 +74,7 @@ class SurfaceField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final labelStyle = theme.textTheme.labelLarge?.copyWith(
-      color: theme.colorScheme.primary.withOpacity(0.85),
+      color: theme.colorScheme.primary.withValues(alpha: 0.85),
       fontWeight: FontWeight.w600,
     );
     Future<void> runDeferredAction(Future<void> Function() action) async {
@@ -96,11 +96,11 @@ class SurfaceField extends StatelessWidget {
             color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: theme.colorScheme.primary.withOpacity(0.08),
+              color: theme.colorScheme.primary.withValues(alpha: 0.08),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 14,
                 offset: const Offset(0, 8),
               ),

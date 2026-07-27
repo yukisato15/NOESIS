@@ -1,10 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/widgets/selectable_context_text.dart';
 import '../../data/local/database.dart';
+import '../../data/local/tables/dictionary_definitions_table.dart';
 import '../../data/local/tables/dictionary_fields_table.dart';
 import 'dictionary_entry_edit_screen.dart';
 
@@ -36,6 +38,14 @@ class _DictionaryEntryDetailScreenState
   Map<int, DictionaryEntryValue> _values = {};
   List<String> _tags = [];
   bool _isLoading = true;
+  final FlutterTts _tts = FlutterTts();
+
+  bool get _isEnglishDictionary {
+    if (_definition?.referenceDomain == DictionaryReferenceDomain.english) {
+      return true;
+    }
+    return _definition?.category == 'english' || _definition?.name == '英語辞書';
+  }
 
   @override
   void initState() {
@@ -48,6 +58,7 @@ class _DictionaryEntryDetailScreenState
     if (widget.database == null) {
       _db?.close();
     }
+    _tts.stop();
     super.dispose();
   }
 
@@ -164,13 +175,18 @@ class _DictionaryEntryDetailScreenState
         }
         return Padding(
           padding: const EdgeInsets.only(bottom: 6),
-          child: InkWell(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () => _openUrl(text),
-            child: SelectableContextText(
-              text: '• $text',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    decoration: TextDecoration.underline,
-                  ),
+            child: SizedBox(
+              width: double.infinity,
+              child: SelectableContextText(
+                text: '• $text',
+                onTap: () => _openUrl(text),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      decoration: TextDecoration.underline,
+                    ),
+              ),
             ),
           ),
         );
@@ -178,85 +194,72 @@ class _DictionaryEntryDetailScreenState
     );
   }
 
+  Widget _buildReadingWithTts(String ipaText) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SelectableContextText(
+            text: ipaText,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.volume_up),
+          tooltip: '発音を再生',
+          onPressed: _speakEnglishHeadword,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _speakEnglishHeadword() async {
+    final text = _entry?.headword.trim() ?? '';
+    if (text.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('見出し語が空です')),
+      );
+      return;
+    }
+    await _tts.setLanguage('en-US');
+    await _tts.setSpeechRate(0.5);
+    await _tts.stop();
+    await _tts.speak(text);
+  }
+
   Future<void> _openUrl(String url) async {
-    final candidate = url.trim();
+    final candidate = url.trim().replaceFirst(RegExp(r'^•\s*'), '');
     if (candidate.isEmpty) {
       return;
     }
-    final normalized = candidate.startsWith('http')
+    final normalized = candidate.startsWith(RegExp(r'https?://'))
         ? candidate
         : 'https://$candidate';
     final uri = Uri.tryParse(normalized);
-    if (uri == null) {
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('URLの形式が正しくありません')),
       );
       return;
     }
-    if (!_isAllowedHost(uri.host)) {
-      final proceed = await _confirmUnsafeUrl(uri);
-      if (proceed == null) {
-        return;
-      }
-      if (proceed == false) {
-        await _openWikipediaFallback();
-        return;
-      }
-    }
     final host = uri.host.toLowerCase();
     if (host.contains('example.com') || host.contains('exmple.com')) {
       await _openWikipediaFallback();
       return;
     }
-    final ok = await launchUrl(uri, mode: LaunchMode.platformDefault);
-    if (!ok) {
+    final okExternal = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (okExternal) {
+      return;
+    }
+    final okDefault = await launchUrl(uri, mode: LaunchMode.platformDefault);
+    if (!okDefault) {
       await _openWikipediaFallback();
     }
-  }
-
-  bool _isAllowedHost(String host) {
-    final lower = host.toLowerCase();
-    const allowedSuffixes = [
-      'wikipedia.org',
-      'wiktionary.org',
-      '.go.jp',
-      '.ac.jp',
-      '.gov',
-      '.edu',
-    ];
-    return allowedSuffixes.any((suffix) {
-      if (suffix.startsWith('.')) {
-        return lower.endsWith(suffix);
-      }
-      return lower == suffix || lower.endsWith('.$suffix');
-    });
-  }
-
-  Future<bool?> _confirmUnsafeUrl(Uri uri) {
-    return showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('外部サイトを開きますか？'),
-          content: Text('安全性が確認できないため、\n${uri.host}\nを開くか選択してください。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(null),
-              child: const Text('やめる'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Wikipediaで開く'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('それでも開く'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Future<void> _openWikipediaFallback() async {
@@ -346,13 +349,13 @@ class _DictionaryEntryDetailScreenState
                         color: theme.colorScheme.surface,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: theme.colorScheme.primary.withOpacity(0.08),
+                          color: theme.colorScheme.primary.withValues(alpha: 0.08),
                         ),
                       ),
                       child: SelectableContextText(
                         text: tag,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.primary.withOpacity(0.8),
+                          color: theme.colorScheme.primary.withValues(alpha: 0.8),
                         ),
                       ),
                     ),
@@ -371,7 +374,13 @@ class _DictionaryEntryDetailScreenState
             if (value.trim().isEmpty) {
               return const SizedBox.shrink();
             }
-            return _buildSection(field.label, _buildValue(field, value));
+            final label = _isEnglishDictionary && field.fieldKey == 'reading'
+                ? '発音記号（IPA）'
+                : field.label;
+            if (_isEnglishDictionary && field.fieldKey == 'reading') {
+              return _buildSection(label, _buildReadingWithTts(value));
+            }
+            return _buildSection(label, _buildValue(field, value));
           }).toList(),
         ],
       ),

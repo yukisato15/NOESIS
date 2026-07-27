@@ -1,11 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 import '../../core/ai/ai_client.dart';
@@ -46,15 +44,23 @@ class _ConceptDictionaryAddScreenState
   final TextEditingController _categoryController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
   final TextEditingController _memoController = TextEditingController();
-  final TextEditingController _referenceUrlsController = TextEditingController();
-  final TextEditingController _similarConceptsController = TextEditingController();
-  final TextEditingController _contrastingConceptsController = TextEditingController();
-  final TextEditingController _relatedConceptsController = TextEditingController();
-  final TextEditingController _culturalBackgroundController = TextEditingController();
-  final TextEditingController _practicalAdviceController = TextEditingController();
+  final TextEditingController _referenceUrlsController =
+      TextEditingController();
+  final TextEditingController _similarConceptsController =
+      TextEditingController();
+  final TextEditingController _contrastingConceptsController =
+      TextEditingController();
+  final TextEditingController _relatedConceptsController =
+      TextEditingController();
+  final TextEditingController _culturalBackgroundController =
+      TextEditingController();
+  final TextEditingController _practicalAdviceController =
+      TextEditingController();
   final TextEditingController _caseStudiesController = TextEditingController();
-  final TextEditingController _gyaruExplanationController = TextEditingController();
-  final TextEditingController _childExplanationController = TextEditingController();
+  final TextEditingController _gyaruExplanationController =
+      TextEditingController();
+  final TextEditingController _childExplanationController =
+      TextEditingController();
 
   bool _isGenerating = false;
   bool _isSaving = false;
@@ -84,6 +90,14 @@ class _ConceptDictionaryAddScreenState
   }
 
   Future<void> _loadSearchUsage() async {
+    if (!SearchClient.canUseWebSearch) {
+      if (mounted) {
+        setState(() {
+          _remainingSearches = 0;
+        });
+      }
+      return;
+    }
     final remaining = await SearchClient.instance.getRemainingGoogleSearches();
     if (mounted) {
       setState(() {
@@ -93,20 +107,20 @@ class _ConceptDictionaryAddScreenState
   }
 
   Widget _buildAIModeSelector() {
+    final availableModes = AIMode.values
+        .where(
+          (mode) => mode != AIMode.withSearch || SearchClient.canUseWebSearch,
+        )
+        .toList();
     return SegmentedButton<AIMode>(
-      segments: AIMode.values
-          .map(
-            (mode) => ButtonSegment(
-              value: mode,
-              label: Text(mode.label),
-            ),
-          )
+      segments: availableModes
+          .map((mode) => ButtonSegment(value: mode, label: Text(mode.label)))
           .toList(),
       selected: {_selectedMode},
       showSelectedIcon: false,
       style: ButtonStyle(
         visualDensity: VisualDensity.compact,
-        padding: MaterialStateProperty.all(
+        padding: WidgetStateProperty.all(
           const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
       ),
@@ -153,9 +167,9 @@ class _ConceptDictionaryAddScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('撮影に失敗しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('撮影に失敗しました: $e')));
       }
     }
   }
@@ -175,9 +189,9 @@ class _ConceptDictionaryAddScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('画像の選択に失敗しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('画像の選択に失敗しました: $e')));
       }
     }
   }
@@ -191,20 +205,19 @@ class _ConceptDictionaryAddScreenState
         });
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('クリップボードから貼り付けました')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('クリップボードから貼り付けました')));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('貼り付けに失敗しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('貼り付けに失敗しました: $e')));
       }
     }
   }
-
 
   Map<String, dynamic> _conceptSchema() {
     return {
@@ -311,23 +324,35 @@ ${contextNote == null || contextNote.isEmpty ? '' : '\n# 対話の要約・ロ�
         _memoController.text = json['memo'].toString();
       }
       if (json['reference_urls'] != null && json['reference_urls'] is List) {
-        final urls = (json['reference_urls'] as List).map((e) => e.toString()).toList();
+        final urls = (json['reference_urls'] as List)
+            .map((e) => e.toString())
+            .toList();
         _referenceUrlsController.text = urls.join('\n');
       }
-      if (json['similar_concepts'] != null && json['similar_concepts'] is List) {
-        final concepts = (json['similar_concepts'] as List).map((e) => e.toString()).toList();
+      if (json['similar_concepts'] != null &&
+          json['similar_concepts'] is List) {
+        final concepts = (json['similar_concepts'] as List)
+            .map((e) => e.toString())
+            .toList();
         _similarConceptsController.text = concepts.join('\n');
       }
-      if (json['contrasting_concepts'] != null && json['contrasting_concepts'] is List) {
-        final concepts = (json['contrasting_concepts'] as List).map((e) => e.toString()).toList();
+      if (json['contrasting_concepts'] != null &&
+          json['contrasting_concepts'] is List) {
+        final concepts = (json['contrasting_concepts'] as List)
+            .map((e) => e.toString())
+            .toList();
         _contrastingConceptsController.text = concepts.join('\n');
       }
-      if (json['related_concepts'] != null && json['related_concepts'] is List) {
-        final concepts = (json['related_concepts'] as List).map((e) => e.toString()).toList();
+      if (json['related_concepts'] != null &&
+          json['related_concepts'] is List) {
+        final concepts = (json['related_concepts'] as List)
+            .map((e) => e.toString())
+            .toList();
         _relatedConceptsController.text = concepts.join('\n');
       }
       if (json['cultural_background'] != null) {
-        _culturalBackgroundController.text = json['cultural_background'].toString();
+        _culturalBackgroundController.text = json['cultural_background']
+            .toString();
       }
       if (json['practical_advice'] != null) {
         _practicalAdviceController.text = json['practical_advice'].toString();
@@ -341,7 +366,6 @@ ${contextNote == null || contextNote.isEmpty ? '' : '\n# 対話の要約・ロ�
       if (json['child_explanation'] != null) {
         _childExplanationController.text = json['child_explanation'].toString();
       }
-
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -410,37 +434,48 @@ ${contextNote == null || contextNote.isEmpty ? '' : '\n# 対話の要約・ロ�
               title: title,
               body: body,
               origin: Value(widget.origin),
-              category: Value(_categoryController.text.trim().isEmpty
-                  ? null
-                  : _categoryController.text.trim()),
+              category: Value(
+                _categoryController.text.trim().isEmpty
+                    ? null
+                    : _categoryController.text.trim(),
+              ),
               tags: Value(tagsJson),
-              memo: Value(_memoController.text.trim().isEmpty
-                  ? null
-                  : _memoController.text.trim()),
+              memo: Value(
+                _memoController.text.trim().isEmpty
+                    ? null
+                    : _memoController.text.trim(),
+              ),
               referenceUrls: Value(_listToJson(_referenceUrlsController)),
               similarConcepts: Value(_listToJson(_similarConceptsController)),
-              contrastingConcepts:
-                  Value(_listToJson(_contrastingConceptsController)),
+              contrastingConcepts: Value(
+                _listToJson(_contrastingConceptsController),
+              ),
               relatedConcepts: Value(_listToJson(_relatedConceptsController)),
-              culturalBackground:
-                  Value(_culturalBackgroundController.text.trim().isEmpty
-                      ? null
-                      : _culturalBackgroundController.text.trim()),
-              practicalAdvice:
-                  Value(_practicalAdviceController.text.trim().isEmpty
-                      ? null
-                      : _practicalAdviceController.text.trim()),
-              caseStudies: Value(_caseStudiesController.text.trim().isEmpty
-                  ? null
-                  : _caseStudiesController.text.trim()),
-              gyaruExplanation:
-                  Value(_gyaruExplanationController.text.trim().isEmpty
-                      ? null
-                      : _gyaruExplanationController.text.trim()),
-              childExplanation:
-                  Value(_childExplanationController.text.trim().isEmpty
-                      ? null
-                      : _childExplanationController.text.trim()),
+              culturalBackground: Value(
+                _culturalBackgroundController.text.trim().isEmpty
+                    ? null
+                    : _culturalBackgroundController.text.trim(),
+              ),
+              practicalAdvice: Value(
+                _practicalAdviceController.text.trim().isEmpty
+                    ? null
+                    : _practicalAdviceController.text.trim(),
+              ),
+              caseStudies: Value(
+                _caseStudiesController.text.trim().isEmpty
+                    ? null
+                    : _caseStudiesController.text.trim(),
+              ),
+              gyaruExplanation: Value(
+                _gyaruExplanationController.text.trim().isEmpty
+                    ? null
+                    : _gyaruExplanationController.text.trim(),
+              ),
+              childExplanation: Value(
+                _childExplanationController.text.trim().isEmpty
+                    ? null
+                    : _childExplanationController.text.trim(),
+              ),
             ),
           );
 
@@ -448,15 +483,15 @@ ${contextNote == null || contextNote.isEmpty ? '' : '\n# 対話の要約・ロ�
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('保存しました')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('保存しました')));
       Navigator.of(context).pop(true);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存に失敗しました: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $error')));
       }
     } finally {
       if (mounted) {
@@ -470,8 +505,9 @@ ${contextNote == null || contextNote.isEmpty ? '' : '\n# 対話の要約・ロ�
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final originLabel =
-        widget.origin == ConceptOrigin.dialogue ? '対話から登録' : '直接入力';
+    final originLabel = widget.origin == ConceptOrigin.dialogue
+        ? '対話から登録'
+        : '直接入力';
 
     return Scaffold(
       appBar: AppBar(
@@ -537,10 +573,7 @@ ${contextNote == null || contextNote.isEmpty ? '' : '\n# 対話の要約・ロ�
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '撮影した画像',
-                            style: theme.textTheme.titleSmall,
-                          ),
+                          Text('撮影した画像', style: theme.textTheme.titleSmall),
                           IconButton(
                             icon: const Icon(Icons.close),
                             onPressed: () {
@@ -556,9 +589,9 @@ ${contextNote == null || contextNote.isEmpty ? '' : '\n# 対話の要約・ロ�
                       Text(
                         '※ 2本指でズーム → 画像を長押しして範囲選択 → コピー → 上の貼り付けボタン',
                         style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       ClipRRect(
@@ -598,8 +631,9 @@ ${contextNote == null || contextNote.isEmpty ? '' : '\n# 対話の要約・ロ�
                     Text(
                       '残り検索回数: $_remainingSearches / 100',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color:
-                            _remainingSearches > 0 ? Colors.green : Colors.red,
+                        color: _remainingSearches > 0
+                            ? Colors.green
+                            : Colors.red,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

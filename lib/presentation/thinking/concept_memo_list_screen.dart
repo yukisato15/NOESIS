@@ -53,7 +53,7 @@ class _ConceptMemoListScreenState extends ConsumerState<ConceptMemoListScreen> {
                   Icon(
                     Icons.lightbulb_outlined,
                     size: 64,
-                    color: theme.colorScheme.secondary.withOpacity(0.4),
+                    color: theme.colorScheme.secondary.withValues(alpha: 0.4),
                   ),
                   const SizedBox(height: 16),
                   Text(

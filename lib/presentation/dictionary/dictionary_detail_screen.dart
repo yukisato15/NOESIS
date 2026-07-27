@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/widgets/selectable_context_text.dart';
@@ -21,10 +22,14 @@ class DictionaryDetailScreen extends StatefulWidget {
 
 class _DictionaryDetailScreenState extends State<DictionaryDetailScreen> {
   final AppDatabase _db = AppDatabase();
+  final FlutterTts _tts = FlutterTts();
   Entry? _entry;
   Map<String, dynamic>? _aiAppendix;
   bool _isLoading = true;
   bool _isEditing = false;
+
+  bool get _isEnglishDomain =>
+      _entry?.domain == DictionaryDomain.english;
 
   Future<T?> _runWithLoading<T>(Future<T?> Function() action) async {
     if (!mounted) {
@@ -61,6 +66,7 @@ class _DictionaryDetailScreenState extends State<DictionaryDetailScreen> {
     _titleController.dispose();
     _bodyController.dispose();
     _db.close();
+    _tts.stop();
     super.dispose();
   }
 
@@ -295,8 +301,10 @@ class _DictionaryDetailScreenState extends State<DictionaryDetailScreen> {
             ),
             const SizedBox(height: 12),
             _buildSectionCard(
-              title: '読み',
-              child: _buildTextValue(_aiAppendix!['reading']),
+              title: _isEnglishDomain ? '発音記号（IPA）' : '読み方',
+              child: _isEnglishDomain
+                  ? _buildReadingWithTts(_aiAppendix!['reading'])
+                  : _buildTextValue(_aiAppendix!['reading']),
             ),
             _buildSectionCard(
               title: 'ジャンル',
@@ -340,23 +348,30 @@ class _DictionaryDetailScreenState extends State<DictionaryDetailScreen> {
   }
 
   Future<void> _openUrl(String url) async {
-    final candidate = url.trim();
+    final candidate = url.trim().replaceFirst(RegExp(r'^•\s*'), '');
     if (candidate.isEmpty) {
       return;
     }
-    final normalized = candidate.startsWith('http')
+    final normalized = candidate.startsWith(RegExp(r'https?://'))
         ? candidate
         : 'https://$candidate';
     final uri = Uri.tryParse(normalized);
-    if (uri == null) {
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('URLの形式が正しくありません')),
       );
       return;
     }
-    final ok = await launchUrl(uri, mode: LaunchMode.platformDefault);
-    if (!ok && mounted) {
+    final okExternal = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (okExternal) {
+      return;
+    }
+    final okDefault = await launchUrl(uri, mode: LaunchMode.platformDefault);
+    if (!okDefault && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('URLを開けませんでした')),
       );
@@ -393,6 +408,39 @@ class _DictionaryDetailScreenState extends State<DictionaryDetailScreen> {
     return SelectableContextText(text: text);
   }
 
+  Widget _buildReadingWithTts(dynamic value) {
+    final text = value?.toString().trim();
+    if (text == null || text.isEmpty) {
+      return const Text('—');
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: SelectableContextText(text: text)),
+        IconButton(
+          icon: const Icon(Icons.volume_up),
+          tooltip: '発音を再生',
+          onPressed: _speakEnglishHeadword,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _speakEnglishHeadword() async {
+    final text = _entry?.title.trim() ?? '';
+    if (text.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('見出し語が空です')),
+      );
+      return;
+    }
+    await _tts.setLanguage('en-US');
+    await _tts.setSpeechRate(0.5);
+    await _tts.stop();
+    await _tts.speak(text);
+  }
+
   Widget _buildListValue(dynamic items, {bool linkify = false}) {
     if (items is! List || items.isEmpty) {
       return const Text('—');
@@ -409,12 +457,17 @@ class _DictionaryDetailScreenState extends State<DictionaryDetailScreen> {
         }
         return Padding(
           padding: const EdgeInsets.only(bottom: 6),
-          child: InkWell(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () => _openUrl(text),
-            child: SelectableContextText(
-              text: '• $text',
-              style: const TextStyle(
-                decoration: TextDecoration.underline,
+            child: SizedBox(
+              width: double.infinity,
+              child: SelectableContextText(
+                text: '• $text',
+                onTap: () => _openUrl(text),
+                style: const TextStyle(
+                  decoration: TextDecoration.underline,
+                ),
               ),
             ),
           ),
@@ -505,7 +558,7 @@ class _DomainBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Text(

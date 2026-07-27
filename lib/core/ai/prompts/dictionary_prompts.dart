@@ -62,7 +62,7 @@ class DictionaryPrompts {
 
 以下のJSON形式で出力してください:
 {
-  "reading": "カタカナ読み",
+  "reading": "発音記号（IPA）",
   "genre": "品詞（名詞/動詞/形容詞/副詞 など）",
   "definition": "日本語での明確な定義",
   "etymology": "語源・由来・歴史的背景を日本語で詳しく（長文可）",

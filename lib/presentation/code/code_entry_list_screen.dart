@@ -293,7 +293,7 @@ class _CodeEntryListScreenState extends ConsumerState<CodeEntryListScreen> {
                                               vertical: 4,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: AppPalette.code.withOpacity(0.1),
+                                              color: AppPalette.code.withValues(alpha: 0.1),
                                               borderRadius: BorderRadius.circular(4),
                                             ),
                                             child: Text(
@@ -314,8 +314,8 @@ class _CodeEntryListScreenState extends ConsumerState<CodeEntryListScreen> {
                                     Container(
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        color: theme.colorScheme.surfaceVariant
-                                            .withOpacity(0.3),
+                                        color: theme.colorScheme.surfaceContainerHighest
+                                            .withValues(alpha: 0.3),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(

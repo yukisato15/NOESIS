@@ -264,8 +264,6 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('高度な検索'),
@@ -608,7 +606,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen> {
       padding: const EdgeInsets.all(16),
       children: [
         Card(
-          color: AppPalette.thinking.withOpacity(0.1),
+          color: AppPalette.thinking.withValues(alpha: 0.1),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -818,7 +816,7 @@ class _ModeChip extends StatelessWidget {
         ],
       ),
       onSelected: (_) => onSelected(),
-      selectedColor: AppPalette.thinking.withOpacity(0.2),
+      selectedColor: AppPalette.thinking.withValues(alpha: 0.2),
     );
   }
 }

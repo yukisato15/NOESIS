@@ -4,19 +4,18 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'dart:io';
-
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 import '../../core/ai/ai_client.dart';
 import '../../core/ai/ai_mode.dart';
 import '../../core/ai/search_client.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/utils/reference_url_resolver.dart';
 import '../../core/widgets/live_text_image_view.dart';
 import '../../data/local/database.dart';
+import '../../data/local/tables/dictionary_definitions_table.dart';
 import '../../data/local/tables/dictionary_fields_table.dart';
 import '../shared/surface_field.dart';
 
@@ -104,6 +103,16 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isGenerating = false;
+  bool get _isEnglishDictionary {
+    if (_definition?.referenceDomain == DictionaryReferenceDomain.english) {
+      return true;
+    }
+    return _definition?.category == 'english' || _definition?.name == '英語辞書';
+  }
+
+  bool get _isPeopleDictionary {
+    return _definition?.category == 'people' || _definition?.name == '人物辞典';
+  }
 
   // Quote Capture用の画像管理
   XFile? _sourceImage;
@@ -125,6 +134,14 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
   }
 
   Future<void> _loadSearchUsage() async {
+    if (!SearchClient.canUseWebSearch) {
+      if (mounted) {
+        setState(() {
+          _remainingSearches = 0;
+        });
+      }
+      return;
+    }
     final remaining = await SearchClient.instance.getRemainingGoogleSearches();
     if (mounted) {
       setState(() {
@@ -159,9 +176,8 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
       final suggestedTags = await db.dictionariesDao.getFrequentTags(
         widget.dictionaryId,
       );
-      final suggestedCategories = await db.dictionariesDao.getFrequentCategories(
-        widget.dictionaryId,
-      );
+      final suggestedCategories = await db.dictionariesDao
+          .getFrequentCategories(widget.dictionaryId);
 
       DictionaryEntry? entry;
       Map<int, DictionaryEntryValue> values = {};
@@ -218,9 +234,9 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
           _isLoading = false;
         });
         final message = kDebugMode ? '読み込みに失敗しました: $e' : '読み込みに失敗しました';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     }
   }
@@ -268,6 +284,7 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
     });
 
     try {
+      await _fillReferenceUrlsIfNeeded(headword);
       final now = DateTime.now();
       final category = _categoryController.text.trim().isEmpty
           ? null
@@ -347,9 +364,9 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
       debugPrint(stack.toString());
       if (mounted) {
         final message = kDebugMode ? '保存に失敗しました: $e' : '保存に失敗しました';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
       if (mounted) {
@@ -358,6 +375,31 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
         });
       }
     }
+  }
+
+  Future<void> _fillReferenceUrlsIfNeeded(String headword) async {
+    final referenceField = _fields.cast<DictionaryField?>().firstWhere(
+      (field) => field?.fieldKey == 'reference_urls',
+      orElse: () => null,
+    );
+    if (referenceField == null || !referenceField.isEnabled) {
+      return;
+    }
+    final controller = _fieldControllers[referenceField.fieldKey];
+    if (controller == null || controller.text.trim().isNotEmpty) {
+      return;
+    }
+
+    final domain =
+        _definition?.referenceDomain ?? DictionaryReferenceDomain.general;
+    final urls = await ReferenceUrlResolver.instance.resolve(
+      headword: headword,
+      domain: domain,
+    );
+    if (urls.isEmpty) {
+      return;
+    }
+    controller.text = urls.join('\n');
   }
 
   Map<String, dynamic> _buildSchema({bool includeMetadata = false}) {
@@ -399,10 +441,11 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
 
   Future<void> _generateWithAI() async {
     final headword = _headwordController.text.trim();
+    final headwordLabel = _isPeopleDictionary ? '人物名' : '見出し語';
     if (headword.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('見出し語を入力してください。')));
+      ).showSnackBar(SnackBar(content: Text('$headwordLabelを入力してください。')));
       return;
     }
 
@@ -414,6 +457,35 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
         .where((f) => f.fieldKey != 'headword' && f.isEnabled)
         .map((f) => '${f.label} (${f.fieldKey})')
         .join(', ');
+
+    final englishHint = _isEnglishDictionary
+        ? '''
+英語辞書の場合のガイドライン:
+- part_of_speech: 名詞/動詞/形容詞/副詞など該当する品詞を複数可で整理
+- verb_forms: 動詞の場合は三人称単数・過去形・過去分詞・現在分詞などを列挙
+- noun_usage/verb_usage/adjective_usage/adverb_usage: それぞれの品詞での意味・用法を日本語で明確に
+- examples: 英文 — 日本語訳の形式で多めに（3〜5件程度）
+'''
+        : '';
+    final peopleHint = _isPeopleDictionary
+        ? '''
+人物辞典の場合のガイドライン:
+- definition: 人物の全体像を2〜4文で簡潔に整理
+- aliases: 別名・旧名・外国語表記があれば列挙
+- era: 活躍した時代や年代感を短く整理
+- birth_death: 生年・没年が分かれば記載
+- birth_place / nationality: 地域情報を整理
+- occupations: 肩書きや役割を複数可で整理
+- achievements: 代表的な業績、著作、作品、功績を要点で整理
+- thought: 思想、立場、主張、作風などを簡潔に整理
+- chronology: 人生上の主要出来事や転機を時系列で整理
+- relationships: 関連人物、師弟、対立人物、影響を受けた人物など
+- evaluation: 後世の評価や人物像を簡潔に整理
+- quotes: 有名な発言や言い回しがあれば記載
+- category: 思想家、作家、科学者、政治家、芸術家、歴史人物など人物カテゴリ
+- tags: 時代、国、分野、キーワードなどを3〜6件
+'''
+        : '';
 
     final prompt =
         '''
@@ -427,6 +499,9 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
 
 出力はJSON形式で、以下の項目を埋めてください。
 対象項目: $fieldLabels
+
+$englishHint
+$peopleHint
 
 また、以下のメタデータも生成してください：
 - category: 適切なカテゴリ/ジャンル（例: 哲学、プログラミング、ビジネスなど）
@@ -509,9 +584,9 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('撮影に失敗しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('撮影に失敗しました: $e')));
       }
     }
   }
@@ -531,9 +606,9 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('画像の選択に失敗しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('画像の選択に失敗しました: $e')));
       }
     }
   }
@@ -547,20 +622,19 @@ class _DictionaryEntryEditScreenState extends State<DictionaryEntryEditScreen> {
         });
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('クリップボードから貼り付けました')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('クリップボードから貼り付けました')));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('貼り付けに失敗しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('貼り付けに失敗しました: $e')));
       }
     }
   }
-
 
   Future<void> _refineWithAI() async {
     final instruction = await showDialog<String>(
@@ -657,20 +731,20 @@ $instruction
   }
 
   Widget _buildAIModeSelector() {
+    final availableModes = AIMode.values
+        .where(
+          (mode) => mode != AIMode.withSearch || SearchClient.canUseWebSearch,
+        )
+        .toList();
     return SegmentedButton<AIMode>(
-      segments: AIMode.values
-          .map(
-            (mode) => ButtonSegment(
-              value: mode,
-              label: Text(mode.label),
-            ),
-          )
+      segments: availableModes
+          .map((mode) => ButtonSegment(value: mode, label: Text(mode.label)))
           .toList(),
       selected: {_selectedMode},
       showSelectedIcon: false,
       style: ButtonStyle(
         visualDensity: VisualDensity.compact,
-        padding: MaterialStateProperty.all(
+        padding: WidgetStateProperty.all(
           const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
       ),
@@ -722,8 +796,10 @@ $instruction
         children: [
           // 見出し語入力（一番上）
           SurfaceField(
-            label: '見出し語',
-            hintText: '例: コンテキスト・スイッチング',
+            label: _isPeopleDictionary ? '人物名' : '見出し語',
+            hintText: _isPeopleDictionary
+                ? '例: 夏目漱石、マリー・キュリー'
+                : '例: コンテキスト・スイッチング',
             controller: _headwordController,
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
@@ -777,9 +853,9 @@ $instruction
                     Text(
                       '※ 2本指でズーム → 画像を長押しして範囲選択 → コピー → 上の貼り付けボタン',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     ClipRRect(
@@ -819,8 +895,7 @@ $instruction
                   Text(
                     '残り検索回数: $_remainingSearches / 100',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color:
-                          _remainingSearches > 0 ? Colors.green : Colors.red,
+                      color: _remainingSearches > 0 ? Colors.green : Colors.red,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -956,7 +1031,9 @@ $instruction
                 (field) => Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: SurfaceField(
-                    label: field.label,
+                    label: _isEnglishDictionary && field.fieldKey == 'reading'
+                        ? '発音記号（IPA）'
+                        : field.label,
                     controller: _fieldControllers[field.fieldKey]!,
                     maxLines: field.fieldType == DictionaryFieldType.text
                         ? 1

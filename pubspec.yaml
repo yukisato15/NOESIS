@@ -64,13 +64,23 @@ dependencies:
   intl: ^0.19.0
   google_fonts: ^6.2.1
   url_launcher: ^6.2.6
+  share_plus: ^9.0.0
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  geolocator: ^12.0.0
+  file_picker: ^8.0.0
   image_picker: ^1.0.7
   image_cropper: ^5.0.1
   flutter_image_compress: ^2.1.0
   google_mlkit_text_recognition: ^0.11.0
-  flutter_tesseract_ocr: ^0.4.24
+  audio_session: ^0.1.25
+  flutter_tts: ^4.2.3
   image: ^4.0.17
   fl_chart: ^0.66.0
+  exif: ^3.3.0
+  just_audio: ^0.9.36
+  record: ^6.0.0
+  youtube_explode_dart: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -106,8 +116,11 @@ flutter:
     - .env
     - assets/brand/icon.png
     - assets/brand/splash.png
-    - assets/tessdata/
-    - assets/tessdata_config.json
+    - assets/data/noesis_questions_core_db.csv
+  fonts:
+    - family: NotoSansJP
+      fonts:
+        - asset: assets/fonts/NotoSansJP-Regular.ttf
 
 flutter_launcher_icons:
   android: false

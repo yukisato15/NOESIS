@@ -104,7 +104,7 @@ class _ConceptDictionaryListScreenState
                   Icon(
                     Icons.menu_book_outlined,
                     size: 64,
-                    color: theme.colorScheme.secondary.withOpacity(0.4),
+                    color: theme.colorScheme.secondary.withValues(alpha: 0.4),
                   ),
                   const SizedBox(height: 16),
                   Text('概念辞書がありません', style: theme.textTheme.bodyLarge),
