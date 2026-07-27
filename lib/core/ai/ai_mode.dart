@@ -1,7 +1,9 @@
+import 'ai_client.dart';
+
 enum AIMode {
-  standard, // 通常のGPT-4o
-  withSearch, // 検索付きGPT-4o + Tavily
-  reasoning, // o1-mini（推論強化）
+  standard, // 通常モード
+  withSearch, // 検索付きモード
+  reasoning, // 推論強化モード
 }
 
 extension AIModeExtension on AIMode {
@@ -17,13 +19,14 @@ extension AIModeExtension on AIMode {
   }
 
   String get description {
+    final providerName = AIClient.instance.providerName;
     switch (this) {
       case AIMode.standard:
-        return 'GPT-4o（通常モード）';
+        return '$providerName（通常モード）';
       case AIMode.withSearch:
-        return 'GPT-4o + Web検索（+0.7円/回）';
+        return '$providerName + Web検索（+0.7円/回）';
       case AIMode.reasoning:
-        return 'o1-mini（深い推論）';
+        return '$providerName（思考・推論強化）';
     }
   }
 }
