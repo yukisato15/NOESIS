@@ -1107,6 +1107,7 @@ class _AISettingsCardState extends State<_AISettingsCard> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<AIProviderType>(
+              isExpanded: true,
               initialValue: currentType,
               decoration: const InputDecoration(
                 labelText: '使用するAIプロバイダー',
@@ -1115,7 +1116,10 @@ class _AISettingsCardState extends State<_AISettingsCard> {
                   .map(
                     (type) => DropdownMenuItem(
                       value: type,
-                      child: Text(type.label),
+                      child: Text(
+                        type.label,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   )
                   .toList(),
@@ -1137,6 +1141,7 @@ class _AISettingsCardState extends State<_AISettingsCard> {
             // プロバイダー固有の設定
             if (currentType == AIProviderType.localLlm) ...[
               DropdownButtonFormField<LocalModelPreset>(
+                isExpanded: true,
                 initialValue: _config!.activeModelPreset,
                 decoration: const InputDecoration(
                   labelText: '使用するローカルモデル (品質/速度)',
@@ -1145,7 +1150,10 @@ class _AISettingsCardState extends State<_AISettingsCard> {
                     .map(
                       (preset) => DropdownMenuItem(
                         value: preset,
-                        child: Text('${preset.name} (${preset.sizeDescription})'),
+                        child: Text(
+                          '${preset.name} (${preset.sizeDescription})',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     )
                     .toList(),
