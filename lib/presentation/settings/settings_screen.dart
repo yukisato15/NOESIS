@@ -335,8 +335,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 16),
 
-          // ── データ書き出し ──────────────────────────
-          _SectionHeader(label: 'データ書き出し'),
+          // ── データバックアップ & 復元 ────────────────────────
+          _SectionHeader(label: 'バックアップ & 復元'),
           Card(
             margin: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
@@ -349,75 +349,177 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.shield_outlined, color: Colors.indigo, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'データ保存・全復元',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
                   Text(
-                    'バックアップをファイルアプリに保存し、必要なときに復元できます。',
+                    'アプリ全体のデータをファイルアプリへバックアップ保存、または既存のバックアップファイルから全復元します。',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.secondary,
+                      height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _isBusy ? null : _exportBackup,
-                          icon: const Icon(Icons.upload_file),
-                          label: Text(_isBusy ? '処理中...' : '書き出し'),
+                          icon: const Icon(Icons.upload_file_rounded, size: 18),
+                          label: Text(_isBusy ? '処理中...' : 'バックアップ作成'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: FilledButton.icon(
                           onPressed: _isBusy ? null : _importBackup,
-                          icon: const Icon(Icons.file_open),
-                          label: Text(_isBusy ? '処理中...' : '復元'),
+                          icon: const Icon(Icons.file_open_rounded, size: 18),
+                          label: Text(_isBusy ? '処理中...' : 'データを復元'),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── データファイル出力 (CSV / TXT) ─────────────────────
+          _SectionHeader(label: 'ファイル出力 (CSV / TXT)'),
+          Card(
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 0,
+            color: theme.colorScheme.surface,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.table_chart_outlined, color: Colors.teal, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Excel / テキストデータ出力',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '対話・辞書・読書・日常メモ等のデータを表計算ソフトやテキストで閲覧可能な形式で書き出します。',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.secondary,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // メインの一括出力アクション
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _isBusy ? null : _exportAllCsv,
+                          icon: const Icon(Icons.table_view_outlined, size: 18),
+                          label: const Text('全データ CSV'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primaryContainer,
+                            foregroundColor: theme.colorScheme.onPrimaryContainer,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _isBusy ? null : _exportAllText,
+                          icon: const Icon(Icons.text_snippet_outlined, size: 18),
+                          label: const Text('全データ TXT'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(height: 1),
+                  const SizedBox(height: 12),
+
+                  Text(
+                    '個別データの出力',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.secondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _isBusy ? null : _exportDialoguesCsv,
-                          icon: const Icon(Icons.forum_outlined),
-                          label: const Text('対話CSV'),
+                          icon: const Icon(Icons.forum_outlined, size: 16),
+                          label: const Text('対話 CSV'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _isBusy ? null : _exportDictionariesCsv,
-                          icon: const Icon(Icons.menu_book_outlined),
-                          label: const Text('辞書CSV'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _isBusy ? null : _exportAllCsv,
-                          icon: const Icon(Icons.table_view_outlined),
-                          label: const Text('全CSV'),
+                          icon: const Icon(Icons.menu_book_outlined, size: 16),
+                          label: const Text('辞書 CSV'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _isBusy ? null : _exportAllText,
-                      icon: const Icon(Icons.text_snippet_outlined),
-                      label: const Text('全TXT（CSV一覧）'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '全CSVは対話・辞書・概念辞書・読書・日常・ITコードを出力します。CSVはExcelでも開けます。',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.secondary,
-                    ),
                   ),
                 ],
               ),
