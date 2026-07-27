@@ -157,7 +157,7 @@ class LocalLLMProvider implements AIProvider {
 
   String _stripJsonFences(String text) {
     var normalized = text.trim();
-    normalized = normalized.replaceAll(RegExp(r'```\w*\s*'), '');
+    normalized = normalized.replaceAll(RegExp(r'```\\w*\\s*'), '');
     normalized = normalized.replaceAll(RegExp(r'```'), '');
     return normalized.trim();
   }
@@ -176,45 +176,70 @@ class LocalLLMProvider implements AIProvider {
     }
   }
 
-  /// Wikipedia APIで実際の知識データを検索
+  /// Wikipedia APIで実際の知識データを検索（OpenSearchによる表記揺れ吸収対応）
   Future<Map<String, String>?> _fetchWikipediaInfo(String rawTerm) async {
     try {
-      final cleanTerm = rawTerm
-          .replaceAll('=', '')
-          .replaceAll('・', '')
-          .replaceAll(' ', '')
-          .trim();
-      if (cleanTerm.isEmpty) return null;
+      final term = rawTerm.trim();
+      if (term.isEmpty) return null;
 
+      // 1. 直接取得の試行
+      var summary = await _getSummaryJson(term);
+
+      // 2. 表記揺れ（マークフィッシャー vs マーク・フィッシャー等）の検索補正
+      if (summary == null) {
+        final cleanTerm = term.replaceAll('=', ' ').replaceAll('・', ' ');
+        final searchUrl = Uri.parse(
+          'https://ja.wikipedia.org/w/api.php?action=opensearch&search=${Uri.encodeComponent(cleanTerm)}&limit=1&format=json',
+        );
+        final searchResp = await http
+            .get(searchUrl)
+            .timeout(const Duration(seconds: 3));
+
+        if (searchResp.statusCode == 200) {
+          final searchJson =
+              jsonDecode(utf8.decode(searchResp.bodyBytes)) as List;
+          if (searchJson.length >= 2 && (searchJson[1] as List).isNotEmpty) {
+            final canonicalTitle = (searchJson[1] as List).first as String;
+            summary = await _getSummaryJson(canonicalTitle);
+          }
+        }
+      }
+
+      return summary;
+    } catch (e) {
+      debugPrint('[LocalLLMProvider] Wikipedia API lookup failed: $e');
+    }
+    return null;
+  }
+
+  Future<Map<String, String>?> _getSummaryJson(String title) async {
+    try {
       final url = Uri.parse(
-        'https://ja.wikipedia.org/api/rest_v1/page/summary/${Uri.encodeComponent(cleanTerm)}',
+        'https://ja.wikipedia.org/api/rest_v1/page/summary/${Uri.encodeComponent(title)}',
       );
       final response = await http
           .get(url, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 3));
 
       if (response.statusCode == 200) {
         final json =
             jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
         final extract = json['extract'] as String?;
         final description = json['description'] as String?;
-        final pageUrl =
-            (json['content_urls']?['desktop']?['page']) as String?;
-        final title = json['title'] as String?;
+        final pageUrl = (json['content_urls']?['desktop']?['page']) as String?;
+        final canonicalTitle = json['title'] as String?;
 
         if (extract != null && extract.isNotEmpty) {
           return {
-            'title': title ?? cleanTerm,
+            'title': canonicalTitle ?? title,
             'extract': extract,
             'description': description ?? '語彙・概念',
             'url': pageUrl ??
-                'https://ja.wikipedia.org/wiki/${Uri.encodeComponent(cleanTerm)}',
+                'https://ja.wikipedia.org/wiki/${Uri.encodeComponent(title)}',
           };
         }
       }
-    } catch (e) {
-      debugPrint('[LocalLLMProvider] Wikipedia API lookup failed: $e');
-    }
+    } catch (_) {}
     return null;
   }
 
@@ -222,7 +247,6 @@ class LocalLLMProvider implements AIProvider {
     Map<String, dynamic> schema, {
     required String prompt,
   }) async {
-    // 見出し語の抽出（プロンプトから「見出し語: XXX」または単語を取得）
     final headwordMatch = RegExp(r'見出し語:\s*([^\n]+)').firstMatch(prompt);
     final conceptMatch = RegExp(r'概念名:\s*([^\n]+)').firstMatch(prompt);
     final headword = (headwordMatch?.group(1) ?? conceptMatch?.group(1) ?? '対象項目').trim();
@@ -230,11 +254,66 @@ class LocalLLMProvider implements AIProvider {
     final isPeople = prompt.contains('人物辞典') || prompt.contains('人物名');
     final isEnglish = prompt.contains('英語辞書');
 
-    // Wikipedia APIから実在データをリアルタイム取得
     final wikiInfo = await _fetchWikipediaInfo(headword);
     final wikiExtract = wikiInfo?['extract'];
     final wikiDesc = wikiInfo?['description'];
     final wikiUrl = wikiInfo?['url'];
+    final wikiTitle = wikiInfo?['title'] ?? headword;
+
+    String? parsedBirthDeath;
+    String? parsedAlias;
+    String? parsedEra;
+    String? parsedPlace;
+    String? parsedOccupations;
+
+    if (wikiExtract != null) {
+      final datesMatch = RegExp(
+        r'(\d{4}年(?:\d{1,2}月\d{1,2}日)?\s*[-〜–—]\s*\d{4}年(?:\d{1,2}月\d{1,2}日)?)',
+      ).firstMatch(wikiExtract);
+      if (datesMatch != null) {
+        parsedBirthDeath = datesMatch.group(1);
+      }
+
+      final aliasMatch = RegExp(r'[（\(]([^）\)]+)[）\)]').firstMatch(wikiExtract);
+      if (aliasMatch != null) {
+        final innerText = aliasMatch.group(1)!;
+        final textWithoutDate = innerText
+            .replaceAll(RegExp(r'\d{4}年.*'), '')
+            .replaceAll(RegExp(r'[-〜–—].*'), '')
+            .replaceAll(RegExp(r'^(?:独|英|仏|伊|露|希|羅):\s*'), '')
+            .trim();
+        if (textWithoutDate.isNotEmpty) {
+          parsedAlias = textWithoutDate;
+        }
+      }
+
+      if (wikiExtract.contains('プロイセン')) {
+        parsedPlace = 'プロイセン王国（ドイツ）';
+      } else if (wikiExtract.contains('ドイツ')) {
+        parsedPlace = 'ドイツ';
+      } else if (wikiExtract.contains('イギリス') || wikiExtract.contains('英国')) {
+        parsedPlace = 'イギリス';
+      } else if (wikiExtract.contains('フランス')) {
+        parsedPlace = 'フランス';
+      } else if (wikiExtract.contains('アメリカ')) {
+        parsedPlace = 'アメリカ合衆国';
+      } else if (wikiExtract.contains('日本')) {
+        parsedPlace = '日本';
+      }
+
+      if (wikiExtract.contains('19世紀') || (parsedBirthDeath?.contains('18') ?? false)) {
+        parsedEra = '19世紀（近代）';
+      } else if (wikiExtract.contains('20世紀') || wikiExtract.contains('21世紀') || (parsedBirthDeath?.contains('19') ?? false)) {
+        parsedEra = '20世紀〜21世紀（現代）';
+      } else if (wikiExtract.contains('古代') || wikiExtract.contains('紀元前')) {
+        parsedEra = '古代';
+      }
+
+      final occMatch = RegExp(r'は、([^。]+?)(?:として|である|です|。)').firstMatch(wikiExtract);
+      if (occMatch != null) {
+        parsedOccupations = occMatch.group(1)?.trim();
+      }
+    }
 
     final result = <String, dynamic>{};
     final properties = schema['properties'] as Map<String, dynamic>? ?? {};
@@ -246,7 +325,7 @@ class LocalLLMProvider implements AIProvider {
         switch (key) {
           case 'tags':
             result[key] = isPeople
-                ? ['人物', '歴史', '思想']
+                ? [parsedPlace ?? '人物', parsedEra ?? '歴史', '思想']
                 : isEnglish
                     ? ['英語', '語彙', '表現']
                     : (wikiDesc != null
@@ -255,30 +334,30 @@ class LocalLLMProvider implements AIProvider {
             break;
           case 'examples':
             result[key] = [
-              '「$headword」に関する代表的な記述・事例',
-              '日常の対話や文章での「$headword」の応用',
+              '「$wikiTitle」に関する主要な著作・文献・思考成果',
+              '「$wikiTitle」の理論や主張の応用・展開',
             ];
             break;
           case 'reference_urls':
             result[key] = [
               wikiUrl ??
-                  'https://ja.wikipedia.org/wiki/${Uri.encodeComponent(headword)}',
+                  'https://ja.wikipedia.org/wiki/${Uri.encodeComponent(wikiTitle)}',
             ];
             break;
           case 'synonyms':
           case 'similar_concepts':
-            result[key] = ['「$headword」に関連する類似概念', '関連語句'];
+            result[key] = ['「$wikiTitle」に関連する主要概念・思想派閥'];
             break;
           case 'antonyms':
           case 'contrasting_concepts':
-            result[key] = ['「$headword」と対比される概念'];
+            result[key] = ['「$wikiTitle」と対立する学説・批判的立場'];
             break;
           case 'related':
           case 'related_concepts':
-            result[key] = ['関連テーマ', '背景理論'];
+            result[key] = ['「$wikiTitle」に影響を与えた/受けた関連人物・文献'];
             break;
           default:
-            result[key] = ['「$headword」に関連する要素'];
+            result[key] = ['「$wikiTitle」に関連する要素'];
             break;
         }
       } else if (type == 'object') {
@@ -297,56 +376,72 @@ class LocalLLMProvider implements AIProvider {
           case 'description':
             result[key] = wikiExtract ??
                 (isPeople
-                    ? '「$headword」は、該当分野で知られる人物です。'
-                    : '「$headword」の基本的な定義・解説です。');
+                    ? '「$wikiTitle」は、該当分野で知られる人物です。'
+                    : '「$wikiTitle」の基本的な定義・解説です。');
             break;
           case 'reading':
-            result[key] = headword;
+            result[key] = wikiTitle;
+            break;
+          case 'aliases':
+            result[key] = parsedAlias ?? '原語表記: $wikiTitle';
+            break;
+          case 'era':
+            result[key] = parsedEra ?? '近代〜現代';
+            break;
+          case 'birth_death':
+            result[key] = parsedBirthDeath ?? '生没年情報';
+            break;
+          case 'birth_place':
+          case 'nationality':
+            result[key] = parsedPlace ?? '国籍・地域情報';
+            break;
+          case 'occupations':
+            result[key] = parsedOccupations ?? '思想家・専門家';
             break;
           case 'memo':
             result[key] = wikiExtract != null
-                ? 'Wikipedia解説要約: ${wikiExtract.length > 80 ? "${wikiExtract.substring(0, 80)}..." : wikiExtract}'
-                : '「$headword」に関する補足メモ。';
+                ? 'Wikipedia要約: $wikiExtract'
+                : '「$wikiTitle」に関する補足メモ。';
             break;
           case 'usage_note':
           case 'misuse':
           case 'common_mistakes':
-            result[key] = '「$headword」の使用上の注意点および文脈に応じた適切な扱い方。';
+            result[key] = '「$wikiTitle」を引用・解釈する際の注意点。';
             break;
           case 'nuance':
           case 'sentiment':
           case 'emotional_tone':
-            result[key] = '「$headword」が持つ客観的なニュアンスおよび言葉の使用感。';
+            result[key] = '「$wikiTitle」の文脈・思想的トーン。';
             break;
           case 'etymology':
           case 'cultural_background':
             result[key] = wikiExtract != null
-                ? '【背景・由来】$wikiExtract'
-                : '「$headword」の歴史的・文化的背景情報。';
+                ? '【背景・文脈】$wikiExtract'
+                : '「$wikiTitle」の歴史的・文化的背景情報。';
             break;
           case 'quotes':
-            result[key] = '「$headword」に関連する名言・記述。';
+            result[key] = '「$wikiTitle」に関する代表的な名言・発言。';
             break;
           case 'practical_advice':
-            result[key] = '「$headword」を理解・活用するための視点。';
+            result[key] = '「$wikiTitle」の理論・概念を応用するためのポイント。';
             break;
           case 'trivia':
             result[key] = wikiExtract != null
-                ? '「$headword」は${wikiDesc ?? "歴史的テーマ"}として広く知られています。'
-                : '「$headword」に関する補足トリビア。';
+                ? '「$wikiTitle」は${wikiDesc ?? "重要な人物・概念"}として知られています。'
+                : '「$wikiTitle」に関する補足情報。';
             break;
           case 'gyaru_explanation':
             result[key] = wikiExtract != null
-                ? '「$headword」ってマシで超有名！要するに${wikiExtract.length > 50 ? "${wikiExtract.substring(0, 50)}..." : wikiExtract}って感じ！'
-                : '「$headword」って要するに超大事なキーワード！';
+                ? '「$wikiTitle」ってマジで歴史変えたレベルで超有名！要するに${wikiExtract.length > 50 ? "${wikiExtract.substring(0, 50)}..." : wikiExtract}って感じ！'
+                : '「$wikiTitle」って要するに超重要な人物！';
             break;
           case 'child_explanation':
             result[key] = wikiExtract != null
-                ? '「$headword」はね、${wikiExtract.length > 40 ? "${wikiExtract.substring(0, 40)}..." : wikiExtract}のことだよ！'
-                : '「$headword」はとっても大切なお話のことだよ！';
+                ? '「$wikiTitle」はね、${wikiExtract.length > 40 ? "${wikiExtract.substring(0, 40)}..." : wikiExtract}をした人だよ！'
+                : '「$wikiTitle」はとってもすごいお仕事をした人だよ！';
             break;
           default:
-            result[key] = wikiExtract ?? '「$headword」に関する詳細情報';
+            result[key] = wikiExtract ?? '「$wikiTitle」に関する詳細情報';
             break;
         }
       }
