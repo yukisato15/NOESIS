@@ -227,31 +227,31 @@ class LocalLLMProvider implements AIProvider {
           case 'definition':
           case 'description':
             result[key] = isPeople
-                ? '「$headword」は、該当分野で大きな影響を与えた人物です。主要な業績と考え方を中心に記述します。'
-                : '「$headword」は、文脈に応じて惜しんで捨て去ることや目的のために省くことを意味する語彙・概念です。';
+                ? '「$headword」は、該当分野で知られる人物です。'
+                : '「$headword」の基本的な定義・解説です。';
             break;
           case 'memo':
-            result[key] = '日常の思考や書き留めたノートとの関連メモ。';
+            result[key] = '「$headword」に関する補足メモ。';
             break;
           case 'usage_note':
           case 'misuse':
-            result[key] = '「不本意ながら削る」という本来の意味と、「不要だから捨てる」という誤用との混同に留意してください。';
+            result[key] = '「$headword」の使用上の注意点および誤用しやすい表現。';
             break;
           case 'nuance':
           case 'sentiment':
-            result[key] = '文脈によって敬意や惜しむ感情を含むニュアンスで用いられます。';
+            result[key] = '「$headword」のニュアンスおよび言葉の使用感。';
             break;
           case 'etymology':
-            result[key] = '仏教用語に由来し、愛着を断ち切る意から転じた言葉です。';
+            result[key] = '「$headword」の語源・言葉の由来情報。';
             break;
           case 'quotes':
-            result[key] = '「惜しみつつも割愛する」という代表的な文言。';
+            result[key] = '「$headword」に関連する用例・表現。';
             break;
           case 'practical_advice':
-            result[key] = 'ビジネス文書や論文の推敲において、全体の整合性を保つために重要な技術です。';
+            result[key] = '「$headword」を理解・活用するためのポイント。';
             break;
           default:
-            result[key] = '「$headword」に関する$keyの補足詳細情報';
+            result[key] = '「$headword」に関する$keyの情報';
             break;
         }
       }
