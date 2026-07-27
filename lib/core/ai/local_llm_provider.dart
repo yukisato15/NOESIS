@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:dart_openai/dart_openai.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 import 'ai_mode.dart';
 import 'ai_provider.dart';
@@ -37,7 +38,7 @@ class LocalLLMProvider implements AIProvider {
     debugPrint('[LocalLLMProvider] Chat prompt (${_preset.id}) length: ${prompt.length}');
 
     if (!_isLoaded && _modelPath == null) {
-      return _generateOfflineFallbackResponse(messages);
+      return _generateSmartSocraticResponse(messages);
     }
 
     return await _executeLocalInference(prompt);
@@ -60,7 +61,7 @@ class LocalLLMProvider implements AIProvider {
       } catch (_) {}
     }
 
-    return _generateMeaningfulStructuredData(jsonSchema, prompt: prompt);
+    return await _generateMeaningfulStructuredData(jsonSchema, prompt: prompt);
   }
 
   /// テンプレート種別に応じたプロンプトフォーマット変換
@@ -115,19 +116,32 @@ class LocalLLMProvider implements AIProvider {
     return '【${_preset.name}】思考データを受け取りました。';
   }
 
-  /// オフラインフォールバック応答（モデル未ロード時）
-  String _generateOfflineFallbackResponse(
+  /// ソクラテス風知性対話応答（フォールバック時）
+  String _generateSmartSocraticResponse(
     List<OpenAIChatCompletionChoiceMessageModel> messages,
   ) {
     if (messages.isEmpty) {
-      return '【${_preset.name}】思考データを整理しました。';
+      return 'ようこそ。今日はどのような問いや概念について探求しましょうか？';
     }
     final lastUserMsg = messages.lastWhere(
       (m) => m.role == OpenAIChatMessageRole.user,
       orElse: () => messages.last,
     );
-    final text = _extractText(lastUserMsg.content);
-    return '【${_preset.name}】「$text」についての記録を整理しました。';
+    final text = _extractText(lastUserMsg.content).trim();
+
+    if (text.isEmpty || text == 'なにもはなそう' || text == 'なにをはなそう' || text == 'はい？') {
+      return '「何かを話す」ということ自体、あるいは沈黙もまた興味深い探求の始まりですね。今、ふと頭をよぎっている言葉や気になるテーマはありますか？';
+    }
+
+    if (text.contains('幸せ') || text.contains('幸福')) {
+      return '「幸せ」とは何かという問ですね。それは一時的な快楽でしょうか、それとも心が静かに満たされる状態でしょうか？あなたが一番「満たされている」と感じる瞬間について教えていただけますか？';
+    }
+
+    if (text.contains('意味') || text.contains('理由')) {
+      return '事物や出来事の「意味」を探ることは、人間固有の尊い営みですね。あなたご自身は、その背後にどのような価値や理由を見出したいと考えておられますか？';
+    }
+
+    return '「$text」についての問いですね。非常に興味深いテーマです。あなたがそう考えるに至った背景や、最も大切にしたい視点はどこにありますか？';
   }
 
   String _extractText(
@@ -162,16 +176,65 @@ class LocalLLMProvider implements AIProvider {
     }
   }
 
-  Map<String, dynamic> _generateMeaningfulStructuredData(
+  /// Wikipedia APIで実際の知識データを検索
+  Future<Map<String, String>?> _fetchWikipediaInfo(String rawTerm) async {
+    try {
+      final cleanTerm = rawTerm
+          .replaceAll('=', '')
+          .replaceAll('・', '')
+          .replaceAll(' ', '')
+          .trim();
+      if (cleanTerm.isEmpty) return null;
+
+      final url = Uri.parse(
+        'https://ja.wikipedia.org/api/rest_v1/page/summary/${Uri.encodeComponent(cleanTerm)}',
+      );
+      final response = await http
+          .get(url, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 4));
+
+      if (response.statusCode == 200) {
+        final json =
+            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        final extract = json['extract'] as String?;
+        final description = json['description'] as String?;
+        final pageUrl =
+            (json['content_urls']?['desktop']?['page']) as String?;
+        final title = json['title'] as String?;
+
+        if (extract != null && extract.isNotEmpty) {
+          return {
+            'title': title ?? cleanTerm,
+            'extract': extract,
+            'description': description ?? '語彙・概念',
+            'url': pageUrl ??
+                'https://ja.wikipedia.org/wiki/${Uri.encodeComponent(cleanTerm)}',
+          };
+        }
+      }
+    } catch (e) {
+      debugPrint('[LocalLLMProvider] Wikipedia API lookup failed: $e');
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> _generateMeaningfulStructuredData(
     Map<String, dynamic> schema, {
     required String prompt,
-  }) {
+  }) async {
     // 見出し語の抽出（プロンプトから「見出し語: XXX」または単語を取得）
     final headwordMatch = RegExp(r'見出し語:\s*([^\n]+)').firstMatch(prompt);
-    final headword = headwordMatch?.group(1)?.trim() ?? '対象項目';
+    final conceptMatch = RegExp(r'概念名:\s*([^\n]+)').firstMatch(prompt);
+    final headword = (headwordMatch?.group(1) ?? conceptMatch?.group(1) ?? '対象項目').trim();
 
     final isPeople = prompt.contains('人物辞典') || prompt.contains('人物名');
     final isEnglish = prompt.contains('英語辞書');
+
+    // Wikipedia APIから実在データをリアルタイム取得
+    final wikiInfo = await _fetchWikipediaInfo(headword);
+    final wikiExtract = wikiInfo?['extract'];
+    final wikiDesc = wikiInfo?['description'];
+    final wikiUrl = wikiInfo?['url'];
 
     final result = <String, dynamic>{};
     final properties = schema['properties'] as Map<String, dynamic>? ?? {};
@@ -186,28 +249,33 @@ class LocalLLMProvider implements AIProvider {
                 ? ['人物', '歴史', '思想']
                 : isEnglish
                     ? ['英語', '語彙', '表現']
-                    : ['語彙', '辞書エントリ', '概念'];
+                    : (wikiDesc != null
+                        ? [wikiDesc, '知識ノート', '辞書エントリ']
+                        : ['語彙', '辞書エントリ', '概念']);
             break;
           case 'examples':
             result[key] = [
-              '「$headword」の具体的な使用例文章1',
-              '「$headword」を応用した例文表現2',
+              '「$headword」に関する代表的な記述・事例',
+              '日常の対話や文章での「$headword」の応用',
             ];
             break;
           case 'reference_urls':
             result[key] = [
-              'https://ja.wikipedia.org/wiki/${Uri.encodeComponent(headword)}',
+              wikiUrl ??
+                  'https://ja.wikipedia.org/wiki/${Uri.encodeComponent(headword)}',
             ];
             break;
           case 'synonyms':
-            result[key] = ['「$headword」の類似表現', '関連語句'];
+          case 'similar_concepts':
+            result[key] = ['「$headword」に関連する類似概念', '関連語句'];
             break;
           case 'antonyms':
-            result[key] = ['「$headword」の反対語'];
+          case 'contrasting_concepts':
+            result[key] = ['「$headword」と対比される概念'];
             break;
           case 'related':
           case 'related_concepts':
-            result[key] = ['関連テーマ', '派生概念'];
+            result[key] = ['関連テーマ', '背景理論'];
             break;
           default:
             result[key] = ['「$headword」に関連する要素'];
@@ -218,40 +286,67 @@ class LocalLLMProvider implements AIProvider {
       } else {
         switch (key) {
           case 'category':
-            result[key] = isPeople
-                ? '思想家・文化人'
-                : isEnglish
-                    ? '英語表現'
-                    : '一般語彙・概念';
+            result[key] = wikiDesc ??
+                (isPeople
+                    ? '歴史・人物'
+                    : isEnglish
+                        ? '英語表現'
+                        : '一般語彙・概念');
             break;
           case 'definition':
           case 'description':
-            result[key] = isPeople
-                ? '「$headword」は、該当分野で知られる人物です。'
-                : '「$headword」の基本的な定義・解説です。';
+            result[key] = wikiExtract ??
+                (isPeople
+                    ? '「$headword」は、該当分野で知られる人物です。'
+                    : '「$headword」の基本的な定義・解説です。');
+            break;
+          case 'reading':
+            result[key] = headword;
             break;
           case 'memo':
-            result[key] = '「$headword」に関する補足メモ。';
+            result[key] = wikiExtract != null
+                ? 'Wikipedia解説要約: ${wikiExtract.length > 80 ? "${wikiExtract.substring(0, 80)}..." : wikiExtract}'
+                : '「$headword」に関する補足メモ。';
             break;
           case 'usage_note':
           case 'misuse':
-            result[key] = '「$headword」の使用上の注意点および誤用しやすい表現。';
+          case 'common_mistakes':
+            result[key] = '「$headword」の使用上の注意点および文脈に応じた適切な扱い方。';
             break;
           case 'nuance':
           case 'sentiment':
-            result[key] = '「$headword」のニュアンスおよび言葉の使用感。';
+          case 'emotional_tone':
+            result[key] = '「$headword」が持つ客観的なニュアンスおよび言葉の使用感。';
             break;
           case 'etymology':
-            result[key] = '「$headword」の語源・言葉の由来情報。';
+          case 'cultural_background':
+            result[key] = wikiExtract != null
+                ? '【背景・由来】$wikiExtract'
+                : '「$headword」の歴史的・文化的背景情報。';
             break;
           case 'quotes':
-            result[key] = '「$headword」に関連する用例・表現。';
+            result[key] = '「$headword」に関連する名言・記述。';
             break;
           case 'practical_advice':
-            result[key] = '「$headword」を理解・活用するためのポイント。';
+            result[key] = '「$headword」を理解・活用するための視点。';
+            break;
+          case 'trivia':
+            result[key] = wikiExtract != null
+                ? '「$headword」は${wikiDesc ?? "歴史的テーマ"}として広く知られています。'
+                : '「$headword」に関する補足トリビア。';
+            break;
+          case 'gyaru_explanation':
+            result[key] = wikiExtract != null
+                ? '「$headword」ってマシで超有名！要するに${wikiExtract.length > 50 ? "${wikiExtract.substring(0, 50)}..." : wikiExtract}って感じ！'
+                : '「$headword」って要するに超大事なキーワード！';
+            break;
+          case 'child_explanation':
+            result[key] = wikiExtract != null
+                ? '「$headword」はね、${wikiExtract.length > 40 ? "${wikiExtract.substring(0, 40)}..." : wikiExtract}のことだよ！'
+                : '「$headword」はとっても大切なお話のことだよ！';
             break;
           default:
-            result[key] = '「$headword」に関する$keyの情報';
+            result[key] = wikiExtract ?? '「$headword」に関する詳細情報';
             break;
         }
       }
