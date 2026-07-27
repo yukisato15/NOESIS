@@ -8,7 +8,10 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/ai/ai_client.dart';
 import '../../core/ai/ai_config_service.dart';
+import '../../core/ai/local_llm_model_info.dart';
+import '../../core/ai/local_model_downloader.dart';
 import '../../core/integrations/notion_client.dart';
+import '../../core/theme/app_palette.dart';
 import '../../core/utils/data_backup_service.dart';
 import '../../core/utils/data_export_service.dart';
 import '../../core/utils/spot_photo_service.dart';
@@ -1031,37 +1034,69 @@ class _AISettingsCardState extends State<_AISettingsCard> {
 
             // プロバイダー固有の設定
             if (currentType == AIProviderType.localLlm) ...[
-              Row(
-                children: [
-                  const Icon(Icons.phone_iphone, size: 20, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'ローカルモデル状態',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          _config!.isLocalModelDownloaded
-                              ? 'Qwen 2.5 1.5B (準備完了)'
-                              : '内蔵フォールバックモードで準備完了',
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ],
+              DropdownButtonFormField<LocalModelPreset>(
+                initialValue: _config!.activeModelPreset,
+                decoration: const InputDecoration(
+                  labelText: '使用するローカルモデル (品質/速度)',
+                ),
+                items: LocalModelPreset.values
+                    .map(
+                      (preset) => DropdownMenuItem(
+                        value: preset,
+                        child: Text('${preset.name} (${preset.sizeDescription})'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (preset) async {
+                  if (preset != null) {
+                    await _config!.setActiveModelPreset(preset);
+                    await AIClient.initialize();
+                    if (mounted) {
+                      setState(() {});
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('モデルを「${preset.name}」に変更しました')),
+                      );
+                    }
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppPalette.soften(AppPalette.thinking, 0.85),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _config!.activeModelPreset.description,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  OutlinedButton(
-                    onPressed: () async {
-                      final downloaded = !_config!.isLocalModelDownloaded;
-                      await _config!.setLocalModelDownloaded(downloaded);
-                      await AIClient.initialize();
-                      if (mounted) setState(() {});
-                    },
-                    child: Text(_config!.isLocalModelDownloaded ? '再読み込み' : '準備'),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      '推奨用途: ${_config!.activeModelPreset.recommendedFor}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.secondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _config!.isQualityPriorityMode,
+                onChanged: (val) async {
+                  await _config!.setQualityPriorityMode(val);
+                  if (mounted) setState(() {});
+                },
+                title: const Text('タスク別クオリティ自動最適化'),
+                subtitle: const Text('思考対話や高度解説時に、高品質3Bモデルへ自動ルーティングします'),
               ),
             ] else if (currentType == AIProviderType.openAI) ...[
               ListTile(

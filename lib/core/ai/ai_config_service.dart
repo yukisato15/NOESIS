@@ -1,6 +1,8 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'local_llm_model_info.dart';
+
 enum AIProviderType {
   localLlm('オンデバイス AI (ローカルLLM)', '端末内で動作・通信不要・完全無料'),
   openAI('OpenAI API (Cloud)', 'GPT-4o / GPT-4o-mini 等を使用'),
@@ -18,6 +20,8 @@ class AIConfigService {
   static const String _keyGeminiKey = 'gemini_api_key';
   static const String _keyLocalModelPath = 'local_llm_model_path';
   static const String _keyLocalModelDownloaded = 'local_llm_model_downloaded';
+  static const String _keyLocalModelPreset = 'local_llm_model_preset';
+  static const String _keyQualityPriority = 'local_llm_quality_priority';
 
   static AIConfigService? _instance;
   final SharedPreferences _prefs;
@@ -98,5 +102,31 @@ class AIConfigService {
 
   Future<bool> setLocalModelDownloaded(bool downloaded) async {
     return await _prefs.setBool(_keyLocalModelDownloaded, downloaded);
+  }
+
+  /// 選択されているローカルモデルプリセット
+  LocalModelPreset get activeModelPreset {
+    final raw = _prefs.getString(_keyLocalModelPreset);
+    if (raw != null) {
+      for (final preset in LocalModelPreset.values) {
+        if (preset.id == raw) {
+          return preset;
+        }
+      }
+    }
+    return LocalModelPreset.qwen15B;
+  }
+
+  Future<bool> setActiveModelPreset(LocalModelPreset preset) async {
+    return await _prefs.setString(_keyLocalModelPreset, preset.id);
+  }
+
+  /// クオリティ優先モード（対話・解説時に自動で高品質3Bモデルへルーティング）
+  bool get isQualityPriorityMode {
+    return _prefs.getBool(_keyQualityPriority) ?? true;
+  }
+
+  Future<bool> setQualityPriorityMode(bool enabled) async {
+    return await _prefs.setBool(_keyQualityPriority, enabled);
   }
 }

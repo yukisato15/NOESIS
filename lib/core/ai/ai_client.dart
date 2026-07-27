@@ -54,6 +54,7 @@ class AIClient {
         provider = LocalLLMProvider(
           modelPath: config.localModelPath,
           isLoaded: config.isLocalModelDownloaded,
+          preset: config.activeModelPreset,
         );
         break;
     }

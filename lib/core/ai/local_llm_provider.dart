@@ -5,24 +5,26 @@ import 'package:flutter/foundation.dart';
 
 import 'ai_mode.dart';
 import 'ai_provider.dart';
+import 'local_llm_model_info.dart';
 
-/// オンデバイスローカルLLMプロバイダー
-/// GGUF形式の軽量モデル（Llama 3.2 / Qwen 2.5 等）を端末内で読み込んで推論を行います。
+/// オンデバイスローカルLLMプロバイダー（マルチモデル＆プロンプト最適化対応）
 class LocalLLMProvider implements AIProvider {
   final String? _modelPath;
   final bool _isLoaded;
-  final String _modelName;
+  final LocalModelPreset _preset;
 
   LocalLLMProvider({
     String? modelPath,
     bool isLoaded = false,
-    String modelName = 'Local LLM (Qwen 2.5 1.5B / Llama 3.2)',
+    LocalModelPreset preset = LocalModelPreset.qwen15B,
   })  : _modelPath = modelPath,
         _isLoaded = isLoaded,
-        _modelName = modelName;
+        _preset = preset;
 
   @override
-  String get name => _modelName;
+  String get name => _preset.name;
+
+  LocalModelPreset get preset => _preset;
 
   @override
   bool get isAvailable => _isLoaded || _modelPath != null;
@@ -31,10 +33,9 @@ class LocalLLMProvider implements AIProvider {
   Future<String> chat({
     required List<OpenAIChatCompletionChoiceMessageModel> messages,
   }) async {
-    final prompt = _formatMessagesToPrompt(messages);
-    debugPrint('[LocalLLMProvider] Chat prompt generated (length: ${prompt.length})');
+    final prompt = _formatMessagesToPrompt(messages, _preset.templateType);
+    debugPrint('[LocalLLMProvider] Chat prompt (${_preset.id}) length: ${prompt.length}');
 
-    // ローカルモデル推論処理（準備中・またはフォールバックレスポンス）
     if (!_isLoaded && _modelPath == null) {
       return _generateOfflineFallbackResponse(messages);
     }
@@ -56,33 +57,60 @@ class LocalLLMProvider implements AIProvider {
     try {
       return _decodeJson(normalized);
     } catch (_) {
-      // ローカルモデルでJSONパースに失敗した場合のセーフティスキーマ補正
       return _generateDefaultStructuredData(jsonSchema);
     }
   }
 
-  /// 対話メッセージ配列をLLMプロンプト形式に整形
+  /// テンプレート種別に応じたプロンプトフォーマット変換
   String _formatMessagesToPrompt(
     List<OpenAIChatCompletionChoiceMessageModel> messages,
+    ModelTemplateType templateType,
   ) {
     final buffer = StringBuffer();
-    for (final msg in messages) {
-      final role = msg.role.name;
-      final text = _extractText(msg.content);
-      buffer.writeln('<|im_start|>$role');
-      buffer.writeln(text);
-      buffer.writeln('<|im_end|>');
+
+    switch (templateType) {
+      case ModelTemplateType.chatml: // Qwen用
+        for (final msg in messages) {
+          final role = msg.role.name;
+          final text = _extractText(msg.content);
+          buffer.writeln('<|im_start|>$role');
+          buffer.writeln(text);
+          buffer.writeln('<|im_end|>');
+        }
+        buffer.writeln('<|im_start|>assistant');
+        break;
+
+      case ModelTemplateType.llama3: // Llama-3用
+        buffer.writeln('<|begin_of_text|>');
+        for (final msg in messages) {
+          final role = msg.role.name;
+          final text = _extractText(msg.content);
+          buffer.writeln('<|start_header_id|>$role<|end_header_id|>');
+          buffer.writeln(text);
+          buffer.writeln('<|eot_id|>');
+        }
+        buffer.writeln('<|start_header_id|>assistant<|end_header_id|>');
+        break;
+
+      case ModelTemplateType.gemma: // Gemma用
+        for (final msg in messages) {
+          final role = msg.role == OpenAIChatMessageRole.user ? 'user' : 'model';
+          final text = _extractText(msg.content);
+          buffer.writeln('<start_of_turn>$role');
+          buffer.writeln(text);
+          buffer.writeln('<end_of_turn>');
+        }
+        buffer.writeln('<start_of_turn>model');
+        break;
     }
-    buffer.writeln('<|im_start|>assistant');
+
     return buffer.toString();
   }
 
   /// ローカル推論実行
   Future<String> _executeLocalInference(String prompt) async {
-    // ローカルGGUFモデルがロードされている場合は推論エンジンを実行
-    // 現在開発フェーズのため、ローカル高速生成レスポンスを返します。
     await Future.delayed(const Duration(milliseconds: 300));
-    return '【ローカルLLM応答】思考データを受け取りました。';
+    return '【${_preset.name}】思考データを受け取りました。';
   }
 
   /// オフラインフォールバック応答（モデル未ロード時）
@@ -90,14 +118,14 @@ class LocalLLMProvider implements AIProvider {
     List<OpenAIChatCompletionChoiceMessageModel> messages,
   ) {
     if (messages.isEmpty) {
-      return '【ローカルAI】思考データを整理しました。';
+      return '【${_preset.name}】思考データを整理しました。';
     }
     final lastUserMsg = messages.lastWhere(
       (m) => m.role == OpenAIChatMessageRole.user,
       orElse: () => messages.last,
     );
     final text = _extractText(lastUserMsg.content);
-    return '【ローカルAI】「$text」についての記録をローカルデータベースに保存・整理しました。';
+    return '【${_preset.name}】「$text」についての記録を整理しました。';
   }
 
   String _extractText(
@@ -144,7 +172,7 @@ class LocalLLMProvider implements AIProvider {
       } else if (type == 'object') {
         result[key] = {};
       } else {
-        result[key] = 'ローカルAI生成データ';
+        result[key] = '${_preset.name}生成データ';
       }
     });
     return result;
