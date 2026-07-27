@@ -19,7 +19,7 @@ void main() async {
   }
 
   // AIクライアント初期化
-  AIClient.initialize();
+  await AIClient.initialize();
   SearchClient.initialize(
     baseUrl: dotenv.env['SEARCH_PROXY_BASE_URL'],
     googleApiKey: dotenv.env['GOOGLE_API_KEY'],

@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:drift/drift.dart' as drift;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/ai/ai_client.dart';
+import '../../core/ai/ai_config_service.dart';
 import '../../core/integrations/notion_client.dart';
 import '../../core/utils/data_backup_service.dart';
 import '../../core/utils/data_export_service.dart';
@@ -441,37 +441,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 16),
 
           // ── AI設定 ───────────────────────────────────
-          _SectionHeader(label: 'AI設定'),
-          _SettingsTile(
-            icon: Icons.smart_toy_outlined,
-            title: 'OpenAI API キー',
-            subtitle: AIClient.isConfigured
-                ? '設定済み（.env の OPENAI_API_KEY）'
-                : '未設定 — .env に OPENAI_API_KEY を追加してください',
-            trailing: Icon(
-              AIClient.isConfigured
-                  ? Icons.check_circle_outline
-                  : Icons.warning_amber_outlined,
-              color: AIClient.isConfigured ? Colors.green : Colors.orange,
-              size: 20,
-            ),
-          ),
-          _SettingsTile(
-            icon: Icons.search,
-            title: 'Google 検索',
-            subtitle: (dotenv.env['GOOGLE_API_KEY'] ?? '').isNotEmpty
-                ? '設定済み（GOOGLE_API_KEY / GOOGLE_SEARCH_ENGINE_ID）'
-                : '未設定 — .env に GOOGLE_API_KEY を追加すると AI 検索が強化されます',
-            trailing: Icon(
-              (dotenv.env['GOOGLE_API_KEY'] ?? '').isNotEmpty
-                  ? Icons.check_circle_outline
-                  : Icons.info_outline,
-              color: (dotenv.env['GOOGLE_API_KEY'] ?? '').isNotEmpty
-                  ? Colors.green
-                  : Colors.grey,
-              size: 20,
-            ),
-          ),
+          _SectionHeader(label: 'AI設定 (ローカルLLM / API切替)'),
+          const _AISettingsCard(),
           const SizedBox(height: 16),
 
           // ── ストレージ ────────────────────────────────
@@ -883,3 +854,250 @@ class _SettingsTile extends StatelessWidget {
     );
   }
 }
+
+// ── AI設定インタラクティブカード ──────────────────────────
+
+class _AISettingsCard extends StatefulWidget {
+  const _AISettingsCard();
+
+  @override
+  State<_AISettingsCard> createState() => _AISettingsCardState();
+}
+
+class _AISettingsCardState extends State<_AISettingsCard> {
+  AIConfigService? _config;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConfig();
+  }
+
+  Future<void> _loadConfig() async {
+    final config = await AIConfigService.getInstance();
+    if (mounted) {
+      setState(() {
+        _config = config;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _changeProvider(AIProviderType type) async {
+    if (_config == null) return;
+    await _config!.setProviderType(type);
+    await AIClient.initialize();
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('AIプロバイダーを「${type.label}」に変更しました')),
+      );
+    }
+  }
+
+  Future<void> _editApiKey(AIProviderType type) async {
+    if (_config == null) return;
+    final isOpenAI = type == AIProviderType.openAI;
+    final currentKey =
+        isOpenAI ? _config!.openAIApiKey : _config!.geminiApiKey;
+    final controller = TextEditingController(text: currentKey);
+
+    final newKey = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${type.label} Key 設定'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'お持ちの ${isOpenAI ? "OpenAI" : "Gemini"} API キーを入力してください。',
+              style: Theme.of(ctx).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'API キー',
+                hintText: 'sk-...',
+              ),
+              obscureText: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+
+    if (newKey != null) {
+      if (isOpenAI) {
+        await _config!.setOpenAIApiKey(newKey);
+      } else {
+        await _config!.setGeminiApiKey(newKey);
+      }
+      await AIClient.initialize();
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('APIキーを更新しました')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading || _config == null) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    final theme = Theme.of(context);
+    final currentType = _config!.providerType;
+    final activeProviderName = AIClient.instance.providerName;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 0,
+      color: theme.colorScheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.smart_toy, color: Colors.teal),
+                const SizedBox(width: 8),
+                Text(
+                  '現在のAIエンジン',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              activeProviderName,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<AIProviderType>(
+              initialValue: currentType,
+              decoration: const InputDecoration(
+                labelText: '使用するAIプロバイダー',
+              ),
+              items: AIProviderType.values
+                  .map(
+                    (type) => DropdownMenuItem(
+                      value: type,
+                      child: Text(type.label),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (val) {
+                if (val != null) _changeProvider(val);
+              },
+            ),
+            const SizedBox(height: 8),
+            Text(
+              currentType.description,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.secondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+
+            // プロバイダー固有の設定
+            if (currentType == AIProviderType.localLlm) ...[
+              Row(
+                children: [
+                  const Icon(Icons.phone_iphone, size: 20, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'ローカルモデル状態',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          _config!.isLocalModelDownloaded
+                              ? 'Qwen 2.5 1.5B (準備完了)'
+                              : '内蔵フォールバックモードで準備完了',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton(
+                    onPressed: () async {
+                      final downloaded = !_config!.isLocalModelDownloaded;
+                      await _config!.setLocalModelDownloaded(downloaded);
+                      await AIClient.initialize();
+                      if (mounted) setState(() {});
+                    },
+                    child: Text(_config!.isLocalModelDownloaded ? '再読み込み' : '準備'),
+                  ),
+                ],
+              ),
+            ] else if (currentType == AIProviderType.openAI) ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.key, color: Colors.amber),
+                title: const Text('OpenAI API キー (BYOK)'),
+                subtitle: Text(
+                  _config!.openAIApiKey.isNotEmpty
+                      ? 'キー設定済み (...${_config!.openAIApiKey.length > 6 ? _config!.openAIApiKey.substring(_config!.openAIApiKey.length - 4) : ""})'
+                      : '未設定 (設定しない場合は.envが使用されます)',
+                ),
+                trailing: OutlinedButton(
+                  onPressed: () => _editApiKey(AIProviderType.openAI),
+                  child: const Text('編集'),
+                ),
+              ),
+            ] else if (currentType == AIProviderType.gemini) ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.key, color: Colors.purple),
+                title: const Text('Gemini API キー (BYOK)'),
+                subtitle: Text(
+                  _config!.geminiApiKey.isNotEmpty
+                      ? 'キー設定済み'
+                      : '未設定 (設定しない場合はOpenAIが使用されます)',
+                ),
+                trailing: OutlinedButton(
+                  onPressed: () => _editApiKey(AIProviderType.gemini),
+                  child: const Text('編集'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
