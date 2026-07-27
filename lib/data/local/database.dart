@@ -649,23 +649,25 @@ class AppDatabase extends _$AppDatabase {
     final columns = await customSelect(
       "PRAGMA table_info('dictionary_definitions')",
     ).get();
-    final columnNames = columns.map((row) => row.read<String>('name')).toSet();
+    final columnNames = columns
+        .map((row) => (row.data['name'] ?? row.read<String>('name')).toString().toLowerCase())
+        .toSet();
 
-    if (!columnNames.contains('recommended_tags')) {
-      await customStatement(
-        'ALTER TABLE dictionary_definitions ADD COLUMN recommended_tags TEXT',
-      );
+    Future<void> addCol(String name, String typeSql) async {
+      if (!columnNames.contains(name.toLowerCase())) {
+        try {
+          await customStatement(
+            'ALTER TABLE dictionary_definitions ADD COLUMN $name $typeSql',
+          );
+        } catch (e) {
+          debugPrint('[DB] ALTER TABLE dictionary_definitions ADD COLUMN $name failed (ignored): $e');
+        }
+      }
     }
-    if (!columnNames.contains('recommended_categories')) {
-      await customStatement(
-        'ALTER TABLE dictionary_definitions ADD COLUMN recommended_categories TEXT',
-      );
-    }
-    if (!columnNames.contains('reference_domain')) {
-      await customStatement(
-        'ALTER TABLE dictionary_definitions ADD COLUMN reference_domain INTEGER NOT NULL DEFAULT 0',
-      );
-    }
+
+    await addCol('recommended_tags', 'TEXT');
+    await addCol('recommended_categories', 'TEXT');
+    await addCol('reference_domain', 'INTEGER NOT NULL DEFAULT 0');
   }
 
   Future<void> ensureConceptDictionaryColumns() async {
@@ -680,7 +682,9 @@ class AppDatabase extends _$AppDatabase {
     final columns = await customSelect(
       "PRAGMA table_info('concept_dictionaries')",
     ).get();
-    final columnNames = columns.map((row) => row.read<String>('name')).toSet();
+    final columnNames = columns
+        .map((row) => (row.data['name'] ?? row.read<String>('name')).toString().toLowerCase())
+        .toSet();
 
     final requiredColumns = <String, String>{
       'category': 'TEXT',
@@ -701,10 +705,14 @@ class AppDatabase extends _$AppDatabase {
     };
 
     for (final entry in requiredColumns.entries) {
-      if (!columnNames.contains(entry.key)) {
-        await customStatement(
-          'ALTER TABLE concept_dictionaries ADD COLUMN ${entry.key} ${entry.value}',
-        );
+      if (!columnNames.contains(entry.key.toLowerCase())) {
+        try {
+          await customStatement(
+            'ALTER TABLE concept_dictionaries ADD COLUMN ${entry.key} ${entry.value}',
+          );
+        } catch (e) {
+          debugPrint('[DB] ALTER TABLE concept_dictionaries ADD COLUMN ${entry.key} failed (ignored): $e');
+        }
       }
     }
   }
@@ -719,7 +727,9 @@ class AppDatabase extends _$AppDatabase {
     }
 
     final columns = await customSelect("PRAGMA table_info('books')").get();
-    final columnNames = columns.map((row) => row.read<String>('name')).toSet();
+    final columnNames = columns
+        .map((row) => (row.data['name'] ?? row.read<String>('name')).toString().toLowerCase())
+        .toSet();
 
     final requiredColumns = <String, String>{
       'genre': 'TEXT',
@@ -736,10 +746,14 @@ class AppDatabase extends _$AppDatabase {
     };
 
     for (final entry in requiredColumns.entries) {
-      if (!columnNames.contains(entry.key)) {
-        await customStatement(
-          'ALTER TABLE books ADD COLUMN ${entry.key} ${entry.value}',
-        );
+      if (!columnNames.contains(entry.key.toLowerCase())) {
+        try {
+          await customStatement(
+            'ALTER TABLE books ADD COLUMN ${entry.key} ${entry.value}',
+          );
+        } catch (e) {
+          debugPrint('[DB] ALTER TABLE books ADD COLUMN ${entry.key} failed (ignored): $e');
+        }
       }
     }
   }
@@ -756,7 +770,9 @@ class AppDatabase extends _$AppDatabase {
     final columns = await customSelect(
       "PRAGMA table_info('reading_memos')",
     ).get();
-    final columnNames = columns.map((row) => row.read<String>('name')).toSet();
+    final columnNames = columns
+        .map((row) => (row.data['name'] ?? row.read<String>('name')).toString().toLowerCase())
+        .toSet();
 
     final requiredColumns = <String, String>{
       'section_title': 'TEXT',
@@ -768,10 +784,14 @@ class AppDatabase extends _$AppDatabase {
     };
 
     for (final entry in requiredColumns.entries) {
-      if (!columnNames.contains(entry.key)) {
-        await customStatement(
-          'ALTER TABLE reading_memos ADD COLUMN ${entry.key} ${entry.value}',
-        );
+      if (!columnNames.contains(entry.key.toLowerCase())) {
+        try {
+          await customStatement(
+            'ALTER TABLE reading_memos ADD COLUMN ${entry.key} ${entry.value}',
+          );
+        } catch (e) {
+          debugPrint('[DB] ALTER TABLE reading_memos ADD COLUMN ${entry.key} failed (ignored): $e');
+        }
       }
     }
   }
@@ -785,7 +805,9 @@ class AppDatabase extends _$AppDatabase {
 
     final columns =
         await customSelect("PRAGMA table_info('podcast_episodes')").get();
-    final columnNames = columns.map((row) => row.read<String>('name')).toSet();
+    final columnNames = columns
+        .map((row) => (row.data['name'] ?? row.read<String>('name')).toString().toLowerCase())
+        .toSet();
 
     final requiredColumns = <String, String>{
       'genre': 'TEXT',
@@ -796,10 +818,14 @@ class AppDatabase extends _$AppDatabase {
     };
 
     for (final entry in requiredColumns.entries) {
-      if (!columnNames.contains(entry.key)) {
-        await customStatement(
-          'ALTER TABLE podcast_episodes ADD COLUMN ${entry.key} ${entry.value}',
-        );
+      if (!columnNames.contains(entry.key.toLowerCase())) {
+        try {
+          await customStatement(
+            'ALTER TABLE podcast_episodes ADD COLUMN ${entry.key} ${entry.value}',
+          );
+        } catch (e) {
+          debugPrint('[DB] ALTER TABLE podcast_episodes ADD COLUMN ${entry.key} failed (ignored): $e');
+        }
       }
     }
   }
@@ -813,7 +839,9 @@ class AppDatabase extends _$AppDatabase {
 
     final columns =
         await customSelect("PRAGMA table_info('episode_clips')").get();
-    final columnNames = columns.map((row) => row.read<String>('name')).toSet();
+    final columnNames = columns
+        .map((row) => (row.data['name'] ?? row.read<String>('name')).toString().toLowerCase())
+        .toSet();
 
     final requiredColumns = <String, String>{
       'title': 'TEXT',
@@ -824,10 +852,14 @@ class AppDatabase extends _$AppDatabase {
     };
 
     for (final entry in requiredColumns.entries) {
-      if (!columnNames.contains(entry.key)) {
-        await customStatement(
-          'ALTER TABLE episode_clips ADD COLUMN ${entry.key} ${entry.value}',
-        );
+      if (!columnNames.contains(entry.key.toLowerCase())) {
+        try {
+          await customStatement(
+            'ALTER TABLE episode_clips ADD COLUMN ${entry.key} ${entry.value}',
+          );
+        } catch (e) {
+          debugPrint('[DB] ALTER TABLE episode_clips ADD COLUMN ${entry.key} failed (ignored): $e');
+        }
       }
     }
   }
@@ -1528,8 +1560,18 @@ class AppDatabase extends _$AppDatabase {
           ''');
     },
     onUpgrade: (Migrator m, int from, int to) async {
+      Future<void> safeAddColumn(TableInfo table, GeneratedColumn column) async {
+        try {
+          await m.addColumn(table, column);
+        } catch (e) {
+          debugPrint(
+            '[DB Migration] Add column ${column.name} to ${table.actualTableName} ignored: $e',
+          );
+        }
+      }
+
       if (from == 1) {
-        await m.addColumn(conceptDictionaries, conceptDictionaries.origin);
+        await safeAddColumn(conceptDictionaries, conceptDictionaries.origin);
         await m.createTable(philosophicalDialogues);
         await m.createTable(philosophicalMessages);
         await m.createTable(philosophicalConceptExtractions);
@@ -2072,33 +2114,33 @@ class AppDatabase extends _$AppDatabase {
 
       if (from < 5) {
         // Add category and tags columns to dictionary_entries
-        await m.addColumn(dictionaryEntries, dictionaryEntries.category);
-        await m.addColumn(dictionaryEntries, dictionaryEntries.tags);
+        await safeAddColumn(dictionaryEntries, dictionaryEntries.category);
+        await safeAddColumn(dictionaryEntries, dictionaryEntries.tags);
       }
 
       if (from < 6) {
         // Add category and tags columns to concept_dictionaries
-        await m.addColumn(conceptDictionaries, conceptDictionaries.category);
-        await m.addColumn(conceptDictionaries, conceptDictionaries.tags);
+        await safeAddColumn(conceptDictionaries, conceptDictionaries.category);
+        await safeAddColumn(conceptDictionaries, conceptDictionaries.tags);
 
         // Add category and tags columns to daily_memos
-        await m.addColumn(dailyMemos, dailyMemos.category);
-        await m.addColumn(dailyMemos, dailyMemos.tags);
+        await safeAddColumn(dailyMemos, dailyMemos.category);
+        await safeAddColumn(dailyMemos, dailyMemos.tags);
 
         // Add category and tags columns to philosophical_dialogues
-        await m.addColumn(
+        await safeAddColumn(
           philosophicalDialogues,
           philosophicalDialogues.category,
         );
-        await m.addColumn(philosophicalDialogues, philosophicalDialogues.tags);
+        await safeAddColumn(philosophicalDialogues, philosophicalDialogues.tags);
       }
 
       if (from < 7) {
-        await m.addColumn(
+        await safeAddColumn(
           dictionaryDefinitions,
           dictionaryDefinitions.recommendedTags,
         );
-        await m.addColumn(
+        await safeAddColumn(
           dictionaryDefinitions,
           dictionaryDefinitions.recommendedCategories,
         );
@@ -2110,11 +2152,11 @@ class AppDatabase extends _$AppDatabase {
       }
 
       if (from < 9) {
-        await m.addColumn(
+        await safeAddColumn(
           conceptDictionaries,
           conceptDictionaries.gyaruExplanation,
         );
-        await m.addColumn(
+        await safeAddColumn(
           conceptDictionaries,
           conceptDictionaries.childExplanation,
         );
@@ -2122,10 +2164,10 @@ class AppDatabase extends _$AppDatabase {
 
       if (from < 10) {
         // Add new columns to quotes table for Quote Capture feature
-        await m.addColumn(quotes, quotes.sectionTitle);
-        await m.addColumn(quotes, quotes.sourceImagePath);
-        await m.addColumn(quotes, quotes.createdAt);
-        await m.addColumn(quotes, quotes.updatedAt);
+        await safeAddColumn(quotes, quotes.sectionTitle);
+        await safeAddColumn(quotes, quotes.sourceImagePath);
+        await safeAddColumn(quotes, quotes.createdAt);
+        await safeAddColumn(quotes, quotes.updatedAt);
       }
 
       if (from < 12) {
@@ -2135,10 +2177,10 @@ class AppDatabase extends _$AppDatabase {
 
       if (from < 13) {
         await m.createTable(personProfileAttributes);
-        await m.addColumn(archiveEntries, archiveEntries.dataType);
-        await m.addColumn(archiveEntries, archiveEntries.confidenceScore);
-        await m.addColumn(archiveEntries, archiveEntries.source);
-        await m.addColumn(archiveEntries, archiveEntries.updatedAt);
+        await safeAddColumn(archiveEntries, archiveEntries.dataType);
+        await safeAddColumn(archiveEntries, archiveEntries.confidenceScore);
+        await safeAddColumn(archiveEntries, archiveEntries.source);
+        await safeAddColumn(archiveEntries, archiveEntries.updatedAt);
       }
 
       if (from < 14) {
